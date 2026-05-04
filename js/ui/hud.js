@@ -1,0 +1,44 @@
+import { ANCHO, medidor, texto } from "../util.js";
+
+export function dibujarHud(g, juego) {
+  g.save();
+  g.fillStyle = "rgba(29, 18, 13, 0.72)";
+  g.fillRect(0, 0, ANCHO, 58);
+  for (let i = 0; i < juego.jugador.maxHp; i++) {
+    g.fillStyle = i < juego.jugador.hp ? "#c74334" : "#4a332a";
+    g.strokeStyle = "#1a100c";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(30 + i * 30, 20);
+    g.bezierCurveTo(20 + i * 30, 8, 6 + i * 30, 24, 30 + i * 30, 42);
+    g.bezierCurveTo(54 + i * 30, 24, 40 + i * 30, 8, 30 + i * 30, 20);
+    g.fill();
+    g.stroke();
+  }
+  medidor(g, 155, 18, 145, 18, juego.jugador.super / 100, "#4aa39a", "SUPER");
+  texto(g, `PUNTOS ${juego.puntos}`, 325, 35, 21, "left");
+  texto(g, `x${juego.combo.toFixed(1)}`, 495, 35, 21, "left");
+  texto(g, `TIEMPO ${Math.floor(juego.tiempo)}`, 590, 35, 21, "left");
+  texto(g, `MONEDAS ${juego.monedas}`, 725, 35, 21, "left");
+  texto(g, `VIDAS ${Math.max(0, juego.vidas + 1)}`, 865, 35, 21, "left");
+  if (juego.nivel?.jefe?.activo) {
+    medidor(g, 230, 64, 500, 18, juego.nivel.jefe.hp / juego.nivel.jefe.maxHp, "#b93930", juego.nivel.jefe.nombre);
+    for (let i = 1; i < juego.nivel.jefe.fasesMax; i++) {
+      const x = 230 + 500 * (i / juego.nivel.jefe.fasesMax);
+      g.fillStyle = "#1a100c";
+      g.fillRect(x - 2, 62, 4, 22);
+    }
+    texto(g, juego.nivel.jefe.dialogo, 480, 104, 18, "center", "#ffef9b");
+  }
+  if (juego.combo > 1.2) texto(g, `COMBO x${juego.combo.toFixed(1)}`, juego.jugador.x - juego.camara.x, juego.jugador.y - 82, 22, "center", "#ffef9b");
+  g.restore();
+}
+
+export function dibujarPausa(g) {
+  g.save();
+  g.fillStyle = "rgba(20, 11, 8, 0.62)";
+  g.fillRect(0, 0, 960, 720);
+  texto(g, "PAUSA", 480, 285, 70);
+  texto(g, "ENTER: CONTINUAR    Q: MAPA", 480, 370, 26);
+  g.restore();
+}

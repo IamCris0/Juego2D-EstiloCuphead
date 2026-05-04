@@ -1,0 +1,46 @@
+:root {
+  color-scheme: dark;
+  --tinta: #1b130f;
+  --crema: #f1dfb8;
+  --oro: #d8a342;
+  --rojo: #9b2f24;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #19110e;
+  color: var(--crema);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+#contenedor {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, rgba(235, 198, 133, 0.12), transparent 45%),
+    linear-gradient(#211611, #110b09);
+}
+
+canvas {
+  width: min(100vw, calc(100vh * 4 / 3));
+  height: min(100vh, calc(100vw * 3 / 4));
+  background: #0f0908;
+  box-shadow: 0 0 0 6px #2f2118, 0 24px 80px rgba(0, 0, 0, 0.65);
+}
+
+.ayuda {
+  position: fixed;
+  left: 14px;
+  bottom: 10px;
+  margin: 0;
+  opacity: 0.78;
+  font: 13px/1.3 system-ui, sans-serif;
+  pointer-events: none;
+  text-shadow: 0 1px 2px #000;
+}
