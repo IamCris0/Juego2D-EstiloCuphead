@@ -13,7 +13,7 @@ export class SistemaBalas {
       w: opts.w || 12, h: opts.h || 12,
       dano: opts.dano || 1, rosa: !!opts.rosa, teledirigida: opts.teledirigida || 0,
       vida: opts.vida || 3, color: opts.color || (dueno === "jugador" ? "#f4e189" : "#d24a43"),
-      giro: 0, tipo: opts.tipo || "bala"
+      giro: 0, tipo: opts.tipo || "bala", rebotes: opts.rebotes || 0
     });
     return b;
   }
@@ -31,6 +31,11 @@ export class SistemaBalas {
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.giro += dt * 8;
+      if (b.dueno === "jugador" && b.rebotes > 0 && (b.y < 40 || b.y > 680)) {
+        b.vy *= -1;
+        b.y = Math.max(40, Math.min(680, b.y));
+        b.rebotes--;
+      }
       if (b.x < juego.camara.x - 150 || b.x > juego.camara.x + 1120 || b.y < -160 || b.y > 880) b.activo = false;
       const br = { x: b.x - b.w / 2, y: b.y - b.h / 2, w: b.w, h: b.h };
       if (b.dueno === "jugador") {
@@ -50,7 +55,8 @@ export class SistemaBalas {
           juego.jugador.aciertos++;
         }
       } else if (aabb(br, juego.jugador.rect())) {
-        if (b.rosa && juego.input.disparoMantenido() && (juego.jugador.vy > 0 || juego.jugador.aereo)) {
+        const parryAuto = b.rosa && (juego.guardado.mejoras.parryAuto || 0) > 0 && Math.hypot(b.x - juego.jugador.x, b.y - juego.jugador.y) < 52;
+        if (b.rosa && (parryAuto || juego.input.disparoMantenido()) && (juego.jugador.vy > 0 || juego.jugador.aereo || parryAuto)) {
           b.activo = false;
           juego.jugador.parry(juego);
         } else {

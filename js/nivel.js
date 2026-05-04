@@ -11,13 +11,20 @@ export const MUNDOS = [
 ];
 
 export function crearNivel(id) {
+  return crearSubNivel(id, 2);
+}
+
+export function crearSubNivel(id, subId) {
   const mundo = MUNDOS[id - 1];
+  const ancho = subId === 1 ? 2200 : subId === 3 ? 960 : 5200;
   const nivel = {
     id,
+    subId,
     nombre: mundo.nombre,
+    nombreSub: ["Zona de practica", "Zona principal", "Jefe del mundo"][subId - 1],
     modo: mundo.modo,
-    ancho: mundo.modo === "jefe" ? 960 : 5200,
-    tiempoLimite: id === 5 ? 220 : 170,
+    ancho,
+    tiempoLimite: subId === 1 ? 90 : subId === 3 ? 220 : 170,
     plataformas: [],
     enemigos: [],
     monedas: [],
@@ -25,32 +32,40 @@ export function crearNivel(id) {
     submarino: mundo.modo === "submarino",
     victoriaFinal: false
   };
-  if (mundo.modo === "run") crearRunGun(nivel, id);
-  if (mundo.modo === "aereo" || mundo.modo === "submarino") crearAereo(nivel, id);
-  if (mundo.modo === "jefe") {
-    nivel.plataformas.push({ x: 0, y: 640, w: 960, h: 100 });
-    nivel.jefe = new Jefe("diablo", 705, 300);
+  if (subId === 3 || mundo.modo === "jefe") {
+    nivel.modo = mundo.modo === "aereo" || mundo.modo === "submarino" ? mundo.modo : "jefe";
+    nivel.submarino = mundo.modo === "submarino";
+    if (nivel.modo === "jefe") nivel.plataformas.push({ x: 0, y: 640, w: 960, h: 100 });
+    nivel.jefe = new Jefe(mundo.jefe, 705, id === 4 ? 330 : 300);
+    nivel.jefe.activo = true;
+    return nivel;
   }
-  if (id !== 5) nivel.jefe = new Jefe(mundo.jefe, nivel.ancho - 260, id === 4 ? 330 : 300);
+  if (mundo.modo === "run") crearRunGun(nivel, id, subId);
+  if (mundo.modo === "aereo" || mundo.modo === "submarino") crearAereo(nivel, id, subId);
   return nivel;
 }
 
-function crearRunGun(nivel, id) {
+function crearRunGun(nivel, id, subId) {
   nivel.plataformas.push({ x: 0, y: 620, w: nivel.ancho + 120, h: 100 });
   const alturas = id === 1 ? [500, 455, 500, 450, 500, 430] : [520, 470, 420, 500, 455, 410];
   alturas.forEach((y, i) => nivel.plataformas.push({ x: 620 + i * 520, y, w: 190 + (i % 2) * 60, h: 28 }));
   const tipos = id === 1 ? ["rana", "pajaro", "hongo", "tortuga"] : ["naipe", "ficha", "tragamonedas", "naipe"];
-  for (let i = 0; i < 20; i++) {
-    const x = 460 + i * 190;
+  const total = subId === 1 ? 10 : 20;
+  const paso = subId === 1 ? 145 : 190;
+  for (let i = 0; i < total; i++) {
+    const x = 360 + i * paso;
     const y = tipos[i % tipos.length] === "pajaro" || tipos[i % tipos.length] === "naipe" ? rand(260, 460) : 590;
-    nivel.enemigos.push(new Enemigo(tipos[i % tipos.length], x, y, [x - 150, x + 150]));
+    nivel.enemigos.push(new Enemigo(tipos[i % tipos.length], x, y, [x - 200, x + 200]));
   }
-  if (id === 1) nivel.enemigos.push(new Jefe("cocodrilo", 2250, 545));
-  for (let i = 0; i < 24; i++) nivel.monedas.push({ x: 330 + i * 180, y: 430 + Math.sin(i) * 80, w: 22, h: 22, tomada: false });
+  if (subId === 2 && id === 1) nivel.enemigos.push(new Jefe("cocodrilo", 2250, 545));
+  const monedas = subId === 1 ? 10 : 24;
+  for (let i = 0; i < monedas; i++) nivel.monedas.push({ x: 330 + i * 180, y: 430 + Math.sin(i) * 80, w: 22, h: 22, tomada: false });
 }
 
-function crearAereo(nivel, id) {
+function crearAereo(nivel, id, subId) {
   const tipos = id === 2 ? ["avioneta", "globo", "nube", "murcielago"] : ["pez", "medusa", "cangrejo", "anguila"];
-  for (let i = 0; i < 32; i++) nivel.enemigos.push(new Enemigo(tipos[i % 4], 620 + i * 145, rand(100, 600)));
-  for (let i = 0; i < 26; i++) nivel.monedas.push({ x: 420 + i * 190, y: rand(100, 590), w: 22, h: 22, tomada: false });
+  const total = subId === 1 ? 10 : 20;
+  for (let i = 0; i < total; i++) nivel.enemigos.push(new Enemigo(tipos[i % 4], 520 + i * (subId === 1 ? 140 : 190), rand(100, 600)));
+  const monedas = subId === 1 ? 10 : 26;
+  for (let i = 0; i < monedas; i++) nivel.monedas.push({ x: 420 + i * 190, y: rand(100, 590), w: 22, h: 22, tomada: false });
 }

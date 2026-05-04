@@ -11,6 +11,11 @@ const JEFES = {
   cocodrilo: { nombre: "COCODRILO GIGANTE", hp: 260, fases: 2, dialogo: ["Chasquido", "Cola salvaje"] }
 };
 
+const COLOR_JEFE = {
+  arbol: "#7d593c", nube: "#5f6477", joker: "#b94355",
+  pulpo: "#8f4b79", diablo: "#9b2f24", cocodrilo: "#557a45"
+};
+
 export class Jefe {
   constructor(tipo, x, y) {
     const datos = JEFES[tipo];
@@ -174,7 +179,12 @@ export class Jefe {
     const pulso = this.transicion > 0 ? 1 + Math.sin(t * 28) * 0.18 : 1 + Math.sin(t * 7) * 0.035;
     g.rotate(Math.sin(t * 4) * 0.05);
     g.scale(pulso, 1 / pulso);
-    g.drawImage(sprites.jefes[this.tipo], -120, -95, 240, 190);
+    const img = sprites.jefes?.[this.tipo];
+    if (img) {
+      g.drawImage(img, -120, -95, 240, 190);
+    } else {
+      this.dibujarFallback(g);
+    }
     if (this.transicion > 0) {
       g.strokeStyle = "#ffef9b";
       g.lineWidth = 8;
@@ -183,5 +193,23 @@ export class Jefe {
       g.stroke();
     }
     g.restore();
+  }
+
+  dibujarFallback(g) {
+    g.fillStyle = COLOR_JEFE[this.tipo] || "#8f5f37";
+    g.strokeStyle = "#1a100c";
+    g.lineWidth = 8;
+    g.beginPath();
+    g.ellipse(0, 0, 82, 66, 0, 0, TAU);
+    g.fill();
+    g.stroke();
+    g.fillStyle = "#1a100c";
+    g.beginPath(); g.ellipse(-25, -14, 8, 16, 0, 0, TAU); g.fill();
+    g.beginPath(); g.ellipse(25, -14, 8, 16, 0, 0, TAU); g.fill();
+    g.strokeStyle = "#1a100c";
+    g.lineWidth = 7;
+    g.beginPath();
+    g.arc(0, 24, 35, 0.1, Math.PI - 0.1);
+    g.stroke();
   }
 }

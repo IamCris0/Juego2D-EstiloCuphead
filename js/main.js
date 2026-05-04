@@ -1,17 +1,17 @@
 import { audio } from "./audio.js";
 import { input } from "./input.js";
-import { guardado, persistir, registrarGrado } from "./guardado.js";
+import { guardado, persistir, registrarGrado, subnivelDesbloqueado } from "./guardado.js";
 import { Camara } from "./camara.js";
 import { SistemaParticulas } from "./particulas.js";
 import { SistemaBalas } from "./bala.js";
 import { Jugador } from "./jugador.js";
 import { Enemigo } from "./enemigo.js";
-import { crearNivel, MUNDOS } from "./nivel.js";
+import { crearSubNivel, MUNDOS } from "./nivel.js";
 import { construirSprites } from "../sprites/sprites.js";
 import { ANCHO, ALTO, TAU, aabb, clamp, rand, texto, tinta } from "./util.js";
 import { dibujarHud, dibujarPausa } from "./ui/hud.js";
 import { dibujarTitulo, dibujarSeleccion } from "./ui/pantallaTitulo.js";
-import { dibujarMapa, dibujarTienda } from "./ui/mapaMundo.js";
+import { dibujarMapa, dibujarSubmundo, dibujarTienda, ITEMS_TIENDA } from "./ui/mapaMundo.js";
 import { dibujarResultados, dibujarDerrota } from "./ui/resultados.js";
 import { dibujarConfiguracion } from "./ui/configuracion.js";
 
@@ -34,6 +34,9 @@ const juego = {
   jugador: new Jugador(guardado.personaje),
   nivel: null,
   mundo: 1,
+  subNivel: 1,
+  mundoSeleccionado: 1,
+  subMenu: 0,
   vidas: 3,
   puntos: 0,
   monedas: guardado.monedas,
@@ -71,9 +74,10 @@ const juego = {
     this.cortina = 0.55;
   },
 
-  iniciarNivel(id) {
+  iniciarNivel(id, subId = 1) {
     this.mundo = id;
-    this.nivel = crearNivel(id);
+    this.subNivel = subId;
+    this.nivel = crearSubNivel(id, subId);
     this.jugador.configurar(guardado.personaje, guardado);
     this.jugador.aereo = ["aereo", "submarino"].includes(this.nivel.modo);
     this.jugador.x = this.nivel.modo === "jefe" ? 145 : 110;
@@ -89,7 +93,7 @@ const juego = {
   },
 
   reiniciarNivel() {
-    this.iniciarNivel(this.mundo);
+    this.iniciarNivel(this.mundo, this.subNivel);
   },
 
   crearEnemigo(tipo, x, y) {
@@ -108,11 +112,11 @@ const juego = {
 
   completarNivel() {
     this.victoriaFinal = this.mundo === 5;
-    guardado.desbloqueado = Math.max(guardado.desbloqueado, this.mundo + 1);
+    if (this.subNivel === 3) guardado.desbloqueado = Math.max(guardado.desbloqueado, this.mundo + 1);
     guardado.monedas = this.monedas;
     guardado.record = Math.max(guardado.record, this.puntos);
     this.resultado = this.calcularGrado();
-    registrarGrado(this.mundo, this.resultado.grado);
+    registrarGrado(this.mundo, this.resultado.grado, this.subNivel);
     persistir();
     this.cambiar("resultados");
   },
@@ -138,14 +142,13 @@ const juego = {
   },
 
   comprar() {
-    const items = [
-      ["vida", 8], ["cadencia", 7], ["velocidad", 6], ["super", 9]
-    ];
-    const [id, coste] = items[this.menu];
-    if (guardado.monedas >= coste && guardado.mejoras[id] < 5) {
-      guardado.monedas -= coste;
-      guardado.mejoras[id]++;
+    const item = ITEMS_TIENDA[this.menu];
+    const nivel = guardado.mejoras[item.id] || 0;
+    if (guardado.monedas >= item.costo && nivel < item.max) {
+      guardado.monedas -= item.costo;
+      guardado.mejoras[item.id] = nivel + 1;
       this.monedas = guardado.monedas;
+      for (let i = 0; i < 24; i++) this.particulas.estallido(480 + rand(-40, 40), 150, "#f4d35e", 1, 260);
       audio.sfx("comprar");
       persistir();
     }
@@ -171,12 +174,21 @@ const juego = {
     } else if (this.estado === "mapa") {
       if (input.izq()) this.menu = Math.max(0, this.menu - 1);
       if (input.der()) this.menu = Math.min(4, this.menu + 1);
-      if (input.confirmar() && this.menu + 1 <= guardado.desbloqueado) this.iniciarNivel(this.menu + 1);
+      if (input.confirmar() && this.menu + 1 <= guardado.desbloqueado) {
+        this.mundoSeleccionado = this.menu + 1;
+        this.subMenu = 0;
+        this.cambiar("submundo");
+      }
       if (input.consumir("KeyT")) this.cambiar("tienda");
       if (input.consumir("KeyS")) this.cambiar("configuracion");
+    } else if (this.estado === "submundo") {
+      if (input.arriba()) this.subMenu = Math.max(0, this.subMenu - 1);
+      if (input.abajo()) this.subMenu = Math.min(2, this.subMenu + 1);
+      if (input.confirmar() && subnivelDesbloqueado(this.mundoSeleccionado, this.subMenu + 1)) this.iniciarNivel(this.mundoSeleccionado, this.subMenu + 1);
+      if (input.atras()) this.cambiar("mapa");
     } else if (this.estado === "tienda") {
       if (input.arriba()) this.menu = Math.max(0, this.menu - 1);
-      if (input.abajo()) this.menu = Math.min(3, this.menu + 1);
+      if (input.abajo()) this.menu = Math.min(ITEMS_TIENDA.length - 1, this.menu + 1);
       if (input.confirmar()) this.comprar();
       if (input.atras()) this.cambiar("mapa");
     } else if (this.estado === "configuracion") {
@@ -200,7 +212,7 @@ const juego = {
   actualizarJuego(dt) {
     this.tiempo += dt;
     this.comboTiempo -= dt;
-    if (this.comboTiempo <= 0) this.combo += (1 - this.combo) * 0.04;
+    if (this.comboTiempo <= 0) this.combo += (1 - this.combo) * (0.04 / (1 + (guardado.mejoras.combo || 0) * 0.45));
     this.jugador.actualizar(dt, this);
     if (["aereo", "submarino"].includes(this.nivel.modo)) this.jugador.x += (this.nivel.submarino ? 65 : 92) * dt;
     this.camara.seguir(this.jugador, this.nivel.ancho);
@@ -210,7 +222,6 @@ const juego = {
     this.balas.actualizar(dt, this);
     this.particulas.actualizar(dt);
     this.recogerMonedas();
-    if (this.nivel.modo !== "jefe" && this.nivel.jefe?.activo && this.jugador.x > this.nivel.ancho - 760) this.nivel.jefe.x = this.nivel.ancho - 260;
     if (this.nivel.modo !== "jefe" && this.jugador.x > this.nivel.ancho - 130 && !this.nivel.jefe?.activo) this.completarNivel();
     if (this.tiempo > this.nivel.tiempoLimite) this.jugador.herir(this);
   },
@@ -252,6 +263,7 @@ const juego = {
     } else if (this.estado === "titulo") dibujarTitulo(g, this);
     else if (this.estado === "personaje") dibujarSeleccion(g, this);
     else if (this.estado === "mapa") dibujarMapa(g, this);
+    else if (this.estado === "submundo") dibujarSubmundo(g, this);
     else if (this.estado === "tienda") dibujarTienda(g, this);
     else if (this.estado === "configuracion") dibujarConfiguracion(g, this);
     else if (this.estado === "derrota") dibujarDerrota(g, this);
@@ -286,6 +298,11 @@ function dibujarNivel(g, juego) {
     if (n.id === 1) {
       g.fillStyle = "#42683c";
       for (let x = p.x + 30; x < p.x + p.w; x += 70) { g.beginPath(); g.arc(x, p.y - 8, 22, 0, TAU); g.fill(); }
+      g.strokeStyle = "#31502e";
+      g.lineWidth = 5;
+      for (let x = p.x + 35; x < p.x + p.w; x += 95) {
+        g.beginPath(); g.moveTo(x, p.y); g.quadraticCurveTo(x + 18, p.y - 34, x + 42, p.y - 6); g.stroke();
+      }
     }
     if (n.id === 3) {
       g.fillStyle = "#f1dfb8";
@@ -295,24 +312,168 @@ function dibujarNivel(g, juego) {
 }
 
 function dibujarParallax(g, n, x0, t) {
+  if (n.id === 1) dibujarSelva(g, x0, t);
+  else if (n.id === 2) dibujarCielos(g, x0, t);
+  else if (n.id === 3) dibujarCasino(g, x0, t);
+  else if (n.id === 4) dibujarOceano(g, x0, t);
+  else dibujarFabrica(g, x0, t);
+}
+
+function dibujarSelva(g, x0, t) {
+  g.save();
+  g.globalAlpha = 0.18;
+  g.fillStyle = "#ffe68a";
+  for (let i = 0; i < 6; i++) {
+    g.beginPath();
+    g.moveTo(x0 + i * 180, 0);
+    g.lineTo(x0 + i * 180 + 80, 0);
+    g.lineTo(x0 + i * 180 - 120, 720);
+    g.lineTo(x0 + i * 180 - 230, 720);
+    g.fill();
+  }
+  g.restore();
   for (let capa = 1; capa <= 3; capa++) {
     g.save();
-    g.globalAlpha = 0.18 + capa * 0.06;
-    for (let i = -1; i < 9; i++) {
-      const x = x0 + i * 210 - (x0 * 0.15 * capa) % 210;
-      const y = 135 + capa * 80 + Math.sin(t + i) * 12;
-      g.fillStyle = n.id === 4 ? "#b7e0df" : n.id === 2 ? "#ffe0b2" : "#2e1d16";
-      g.beginPath();
-      g.ellipse(x, y, 70 - capa * 8, 24, 0, 0, TAU);
-      g.fill();
-      if (n.id === 4) {
+    g.globalAlpha = 0.24 + capa * 0.08;
+    for (let i = -2; i < 12; i++) {
+      const x = x0 + i * 185 - (x0 * 0.08 * capa) % 185;
+      const y = 230 + capa * 95;
+      g.fillStyle = "#5b3b25";
+      g.fillRect(x - 12, y, 24, 380);
+      g.fillStyle = capa === 3 ? "#42683c" : "#345b34";
+      for (let j = 0; j < 4; j++) {
         g.beginPath();
-        g.arc(x + 45, y + 80 + Math.sin(t * 2 + i) * 30, 7, 0, TAU);
+        g.arc(x - 42 + j * 28, y - 8 + Math.sin(t + i + j) * 5, 35, 0, TAU);
         g.fill();
       }
     }
     g.restore();
   }
+}
+
+function dibujarCielos(g, x0, t) {
+  g.save();
+  g.fillStyle = "#ffd17a";
+  g.beginPath();
+  g.arc(x0 + 820, 105, 72, 0, TAU);
+  g.fill();
+  g.restore();
+  for (let capa = 1; capa <= 3; capa++) {
+    g.save();
+    g.globalAlpha = 0.24 + capa * 0.12;
+    g.fillStyle = capa === 1 ? "#ffe2bd" : "#fff1d4";
+    for (let i = -2; i < 11; i++) {
+      const x = x0 + i * 230 - ((x0 * 0.12 * capa + t * 24 * capa) % 230);
+      const y = 120 + capa * 115 + Math.sin(t + i) * 12;
+      g.beginPath(); g.ellipse(x, y, 78, 25, 0, 0, TAU); g.fill();
+      g.beginPath(); g.ellipse(x + 45, y - 10, 44, 20, 0, 0, TAU); g.fill();
+    }
+    g.restore();
+  }
+  g.save();
+  g.strokeStyle = "rgba(255,244,214,0.45)";
+  g.lineWidth = 4;
+  for (let i = 0; i < 12; i++) {
+    const y = 100 + i * 45;
+    const x = x0 + ((t * 180 + i * 130) % 1100) - 80;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 65, y - 18, x + 150, y); g.stroke();
+  }
+  g.restore();
+}
+
+function dibujarCasino(g, x0, t) {
+  g.save();
+  g.fillStyle = "#8b1f2f";
+  g.fillRect(x0 - 80, 0, 45, 720);
+  g.fillRect(x0 + 995, 0, 45, 720);
+  for (let i = 0; i < 24; i++) {
+    const x = x0 + 60 + i * 110 - (x0 * 0.18) % 110;
+    const y = 90 + (i % 5) * 95;
+    g.fillStyle = Math.sin(t * 5 + i) > 0 ? "#ffef9b" : "#9b2f24";
+    g.beginPath();
+    for (let k = 0; k < 5; k++) {
+      const a = -Math.PI / 2 + k * TAU / 5;
+      g.lineTo(x + Math.cos(a) * 18, y + Math.sin(a) * 18);
+      g.lineTo(x + Math.cos(a + TAU / 10) * 7, y + Math.sin(a + TAU / 10) * 7);
+    }
+    g.closePath(); g.fill();
+    g.fillStyle = "#f1dfb8";
+    g.beginPath(); g.roundRect(x + 35, y + 25, 28, 28, 5); g.fill();
+    g.fillStyle = "#d8a342";
+    g.beginPath(); g.arc(x - 40, y + 35, 14, 0, TAU); g.fill();
+  }
+  g.restore();
+}
+
+function dibujarOceano(g, x0, t) {
+  g.save();
+  const luz = g.createRadialGradient(x0 + 480, -30, 20, x0 + 480, 20, 650);
+  luz.addColorStop(0, "rgba(185,230,255,0.55)");
+  luz.addColorStop(1, "rgba(185,230,255,0)");
+  g.fillStyle = luz;
+  g.fillRect(x0 - 80, 0, ANCHO + 160, ALTO);
+  for (let i = 0; i < 34; i++) {
+    const x = x0 + ((i * 97 - x0 * 0.2) % 1100);
+    const y = ((650 - (t * (30 + i % 5 * 8) + i * 51) % 720) + 720) % 720;
+    g.strokeStyle = "rgba(208,244,255,0.45)";
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(x, y, 4 + i % 4, 0, TAU); g.stroke();
+  }
+  g.strokeStyle = "#173b32";
+  g.lineWidth = 6;
+  for (let i = -1; i < 14; i++) {
+    const x = x0 + i * 90 - (x0 * 0.1) % 90;
+    g.beginPath();
+    g.moveTo(x, 680);
+    g.quadraticCurveTo(x + Math.sin(t * 2 + i) * 35, 570, x + 10, 480);
+    g.stroke();
+    g.fillStyle = "#e18e59";
+    g.beginPath(); g.ellipse(x + 45, 280 + Math.sin(t + i) * 30, 18, 7, 0, 0, TAU); g.fill();
+  }
+  g.restore();
+}
+
+function dibujarFabrica(g, x0, t) {
+  g.save();
+  g.strokeStyle = "#5d5044";
+  g.lineWidth = 18;
+  for (let i = 0; i < 8; i++) {
+    const x = x0 + i * 170 - (x0 * 0.12) % 170;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 720); g.stroke();
+    g.beginPath(); g.moveTo(x - 80, 180 + i % 3 * 110); g.lineTo(x + 120, 180 + i % 3 * 110); g.stroke();
+  }
+  for (let i = 0; i < 8; i++) {
+    const x = x0 + 90 + i * 135 - (x0 * 0.16) % 135;
+    const y = 120 + (i % 4) * 105;
+    g.save();
+    g.translate(x, y);
+    g.rotate(t * (i % 2 ? -1 : 1));
+    g.strokeStyle = "#8f8a74";
+    g.lineWidth = 8;
+    g.beginPath(); g.arc(0, 0, 32, 0, TAU); g.stroke();
+    for (let k = 0; k < 10; k++) {
+      const a = k / 10 * TAU;
+      g.beginPath(); g.moveTo(Math.cos(a) * 34, Math.sin(a) * 34); g.lineTo(Math.cos(a) * 48, Math.sin(a) * 48); g.stroke();
+    }
+    g.restore();
+  }
+  g.fillStyle = "rgba(255,120,45,0.45)";
+  for (let i = 0; i < 18; i++) {
+    const x = x0 + i * 65;
+    g.beginPath();
+    g.moveTo(x, 720);
+    g.quadraticCurveTo(x + 20, 650 - Math.sin(t * 8 + i) * 25, x + 40, 720);
+    g.fill();
+  }
+  g.strokeStyle = "rgba(255,210,130,0.16)";
+  g.lineWidth = 2;
+  for (let y = 40; y < 170; y += 18) {
+    g.beginPath();
+    g.moveTo(x0 - 80, y + Math.sin(t * 5 + y) * 4);
+    g.lineTo(x0 + 1040, y + Math.cos(t * 5 + y) * 4);
+    g.stroke();
+  }
+  g.restore();
 }
 
 function dibujarMoneda(g, c, t) {

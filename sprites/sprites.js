@@ -108,6 +108,7 @@ export function construirSprites() {
         medusa: "#9c71b8", cangrejo: "#b94435", anguila: "#707b9b", clon: "#f3e1bd"
       }[tipo] || "#8f5f37";
       tinta(g, color);
+      g.beginPath();
       if (tipo === "naipe") g.roundRect(18, 8, 34, 46, 5);
       else g.ellipse(35, 31, 24, 19, 0, 0, TAU);
       g.fill(); g.stroke();

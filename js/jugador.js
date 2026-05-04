@@ -22,7 +22,7 @@ export class Jugador {
 
   reset() {
     const p = PERSONAJES[this.tipo] || PERSONAJES.tacita;
-    const mejoras = this.guardado?.mejoras || { vida: 0, cadencia: 0, velocidad: 0, super: 0 };
+    const mejoras = this.guardado?.mejoras || { vida: 0, cadencia: 0, velocidad: 0, super: 0, escudo: 0 };
     Object.assign(this, {
       x: 110, y: 520, w: 38, h: 58, vx: 0, vy: 0, direccion: 1,
       maxHp: p.hp + mejoras.vida, hp: p.hp + mejoras.vida,
@@ -30,7 +30,7 @@ export class Jugador {
       dash: 0, dashCd: 0, disparoCd: 0, estado: "idle", aereo: false,
       super: mejoras.super * 12, parries: 0, golpes: 0, disparos: 0, aciertos: 0,
       aimX: 1, aimY: 0, muerto: false, victoria: false, fantasmas: [],
-      muerteRot: 0, sombrero: 0, aura: 0
+      muerteRot: 0, sombrero: 0, aura: 0, escudos: mejoras.escudo || 0
     });
   }
 
@@ -40,6 +40,15 @@ export class Jugador {
 
   herir(juego) {
     if (this.inv > 0 || this.muerto) return;
+    if (this.escudos > 0) {
+      this.escudos--;
+      this.inv = 0.9;
+      this.estado = "golpeado";
+      juego.camara.golpear(10);
+      juego.particulas.estallido(this.x, this.y, "#241914", 24, 240);
+      juego.audio.sfx("parry");
+      return;
+    }
     this.hp--;
     this.golpes++;
     this.inv = 1.4;
@@ -97,10 +106,14 @@ export class Jugador {
     else this.actualizarPlataforma(dt, mx, juego);
 
     if (input.dash() && this.dashCd <= 0) this.iniciarDash(juego);
+    const dashPrevio = this.dash;
     if (this.dash > 0) {
       this.dash -= dt;
       this.fantasmas.push({ x: this.x, y: this.y, dir: this.direccion, vida: 0.22 });
       while (this.fantasmas.length > 5) this.fantasmas.shift();
+    }
+    if (dashPrevio > 0 && this.dash <= 0 && (this.guardado?.mejoras?.dashCargado || 0) > 0) {
+      juego.particulas.estallido(this.x, this.y, "#ffef9b", 24, 280);
     }
     this.fantasmas.forEach(f => f.vida -= dt);
     this.fantasmas = this.fantasmas.filter(f => f.vida > 0);
@@ -172,9 +185,13 @@ export class Jugador {
     this.disparoCd = Math.max(0.055, p.cadencia - mejoras.cadencia * 0.012);
     this.disparos++;
     this.estado = "disparar";
-    juego.balas.crear("jugador", this.x + this.aimX * 32, this.y + this.aimY * 22, this.aimX * p.bala, this.aimY * p.bala, {
-      color: "#f5d66c", w: 16, h: 10, dano: 5, vida: 1.8
-    });
+    const doble = (mejoras.doble || 0) > 0;
+    const offsets = doble ? [-8, 8] : [0];
+    for (const off of offsets) {
+      juego.balas.crear("jugador", this.x + this.aimX * 32, this.y + this.aimY * 22 + off, this.aimX * p.bala, this.aimY * p.bala, {
+        color: "#f5d66c", w: 16, h: 10, dano: 5, vida: 1.8, rebotes: mejoras.rebote || 0
+      });
+    }
     juego.audio.sfx("disparo");
   }
 

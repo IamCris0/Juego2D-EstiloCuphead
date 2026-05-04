@@ -21,6 +21,13 @@ const DATOS = {
   clon: { hp: 22, velocidad: 150, dispara: true }
 };
 
+const COLOR_FALLBACK = {
+  rana: "#6d9a4b", pajaro: "#b8793d", hongo: "#a64a3a", tortuga: "#657a54",
+  avioneta: "#c74334", globo: "#d85c7f", nube: "#d8d1bd", murcielago: "#554069",
+  naipe: "#f1dfb8", ficha: "#d8a342", tragamonedas: "#6d6a65", pez: "#e18e59",
+  medusa: "#9c71b8", cangrejo: "#b94435", anguila: "#707b9b", clon: "#f3e1bd"
+};
+
 export class Enemigo {
   constructor(tipo, x, y, zona = [x - 180, x + 180]) {
     const datos = DATOS[tipo] || DATOS.rana;
@@ -136,8 +143,12 @@ export class Enemigo {
     const squash = this.aturdido > 0 ? 0.82 + Math.sin(t * 30) * 0.08 : 1 + Math.sin(this.t * 10) * 0.035;
     g.rotate((this.gira || this.rueda ? this.t * 3 : Math.sin(this.t * 8) * 0.04));
     g.scale(carga / squash, squash);
-    const img = sprites.enemigos[this.tipo] || sprites.enemigos.rana;
-    g.drawImage(img, -35, -31, 70, 62);
+    const img = sprites.enemigos?.[this.tipo];
+    if (img) {
+      g.drawImage(img, -35, -31, 70, 62);
+    } else {
+      this.dibujarFallback(g);
+    }
     if (this.flash > 0) {
       g.globalCompositeOperation = "source-atop";
       g.fillStyle = "rgba(255,255,255,0.75)";
@@ -148,5 +159,22 @@ export class Enemigo {
       g.beginPath(); g.arc(0, 0, 38 + Math.sin(t * 20) * 4, 0, TAU); g.stroke();
     }
     g.restore();
+  }
+
+  dibujarFallback(g) {
+    tinta(g, COLOR_FALLBACK[this.tipo] || "#8f5f37", "#1a100c", 4);
+    g.beginPath();
+    if (this.tipo === "naipe") g.roundRect(-18, -24, 36, 48, 5);
+    else g.ellipse(0, 0, 24, 19, 0, 0, TAU);
+    g.fill();
+    g.stroke();
+    g.fillStyle = "#1a100c";
+    g.beginPath(); g.arc(-8, -5, 4, 0, TAU); g.fill();
+    g.beginPath(); g.arc(8, -5, 4, 0, TAU); g.fill();
+    g.strokeStyle = "#1a100c";
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(0, 8, 9, 0.15, Math.PI - 0.15);
+    g.stroke();
   }
 }
