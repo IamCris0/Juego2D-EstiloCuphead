@@ -148,7 +148,7 @@ export class Jugador {
         this.saltos = 0;
       }
     }
-    if (this.y > 800) this.herir(juego);
+    if (this.y > 700) this.herir(juego);
     this.x = clamp(this.x, 35, juego.nivel.ancho - 35);
     if (this.estado !== "disparar" && this.estado !== "parry" && this.estado !== "golpeado") {
       if (!this.enSuelo) this.estado = this.vy < 0 ? "saltar" : "caer";

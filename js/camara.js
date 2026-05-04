@@ -6,6 +6,7 @@ export class Camara {
     this.y = 0;
     this.sacudida = 0;
     this.zoom = 1;
+    this.zoomObj = 1;
     this.lensFlare = 0;
   }
 
@@ -24,21 +25,20 @@ export class Camara {
   }
 
   muerteJefe() {
-    this.zoom = 0.9;
+    this.zoomObj = 0.88;
     this.golpear(34);
   }
 
   actualizar(dt) {
     this.sacudida = Math.max(0, this.sacudida - 52 * dt);
-    this.zoom += (1 - this.zoom) * 0.04;
+    this.zoom += (this.zoomObj - this.zoom) * 0.04;
+    this.zoomObj += (1 - this.zoomObj) * 0.02;
     this.lensFlare = Math.max(0, this.lensFlare - dt);
   }
 
   aplicar(g) {
-    const sx = this.sacudida ? rand(-this.sacudida, this.sacudida) : 0;
-    const sy = this.sacudida ? rand(-this.sacudida, this.sacudida) : 0;
-    g.translate(ANCHO / 2, ALTO / 2);
-    g.scale(this.zoom, this.zoom);
-    g.translate(-ANCHO / 2 - Math.round(this.x) + sx, -Math.round(this.y) + sy);
+    const sx = this.sacudida > 0 ? rand(-this.sacudida, this.sacudida) : 0;
+    const sy = this.sacudida > 0 ? rand(-this.sacudida, this.sacudida) : 0;
+    g.translate(Math.round(-this.x + sx), Math.round(-this.y + sy));
   }
 }

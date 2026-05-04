@@ -46,7 +46,7 @@ export function crearSubNivel(id, subId) {
 }
 
 function crearRunGun(nivel, id, subId) {
-  nivel.plataformas.push({ x: 0, y: 620, w: nivel.ancho + 120, h: 100 });
+  nivel.plataformas.push({ x: 0, y: 620, w: nivel.ancho + 120, h: 120 });
   const alturas = id === 1 ? [500, 455, 500, 450, 500, 430] : [520, 470, 420, 500, 455, 410];
   alturas.forEach((y, i) => nivel.plataformas.push({ x: 620 + i * 520, y, w: 190 + (i % 2) * 60, h: 28 }));
   const tipos = id === 1 ? ["rana", "pajaro", "hongo", "tortuga"] : ["naipe", "ficha", "tragamonedas", "naipe"];

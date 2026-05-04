@@ -287,7 +287,7 @@ function dibujarNivel(g, juego) {
   grad.addColorStop(0, paletas[n.id][0]);
   grad.addColorStop(1, paletas[n.id][1]);
   g.fillStyle = grad;
-  g.fillRect(x0 - 80, 0, ANCHO + 160, ALTO);
+  g.fillRect(x0, 0, ANCHO, ALTO);
   dibujarParallax(g, n, x0, juego.t);
   for (const p of n.plataformas) {
     tinta(g, n.id === 3 ? "#6d312e" : n.id === 5 ? "#5d5044" : "#7d593c", "#1a100c", 5);
@@ -384,8 +384,8 @@ function dibujarCielos(g, x0, t) {
 function dibujarCasino(g, x0, t) {
   g.save();
   g.fillStyle = "#8b1f2f";
-  g.fillRect(x0 - 80, 0, 45, 720);
-  g.fillRect(x0 + 995, 0, 45, 720);
+  g.fillRect(x0, 0, 45, 720);
+  g.fillRect(x0 + ANCHO - 45, 0, 45, 720);
   for (let i = 0; i < 24; i++) {
     const x = x0 + 60 + i * 110 - (x0 * 0.18) % 110;
     const y = 90 + (i % 5) * 95;
@@ -411,7 +411,7 @@ function dibujarOceano(g, x0, t) {
   luz.addColorStop(0, "rgba(185,230,255,0.55)");
   luz.addColorStop(1, "rgba(185,230,255,0)");
   g.fillStyle = luz;
-  g.fillRect(x0 - 80, 0, ANCHO + 160, ALTO);
+  g.fillRect(x0, 0, ANCHO, ALTO);
   for (let i = 0; i < 34; i++) {
     const x = x0 + ((i * 97 - x0 * 0.2) % 1100);
     const y = ((650 - (t * (30 + i % 5 * 8) + i * 51) % 720) + 720) % 720;
