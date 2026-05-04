@@ -78,6 +78,9 @@ export class Enemigo {
   morir(juego) {
     if (!this.activo) return;
     this.activo = false;
+    juego.logros.kills = (juego.logros.kills || 0) + 1;
+    juego.guardarLogros?.();
+    if (juego.logros.kills >= 50) juego.logro("exterminador");
     juego.sumarPuntos(180);
     juego.particulas.estallido(this.x, this.y, "#d8a342", 8, 260, true);
     juego.audio.sfx("muerte");

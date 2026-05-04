@@ -68,6 +68,7 @@ export class SistemaBalas {
   }
 
   dibujar(g) {
+    g.setLineDash([]);
     this.pool.cada(b => {
       g.save();
       g.translate(b.x, b.y);

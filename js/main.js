@@ -7,6 +7,7 @@ import { SistemaBalas } from "./bala.js";
 import { Jugador } from "./jugador.js";
 import { Enemigo } from "./enemigo.js";
 import { crearSubNivel, MUNDOS } from "./nivel.js";
+import { agregarPuntaje, limpiarLeaderboard, obtenerLeaderboard } from "./leaderboard.js";
 import { construirSprites } from "../sprites/sprites.js";
 import { ANCHO, ALTO, TAU, aabb, clamp, rand, texto, tinta } from "./util.js";
 import { dibujarHud, dibujarPausa } from "./ui/hud.js";
@@ -14,14 +15,18 @@ import { dibujarTitulo, dibujarSeleccion } from "./ui/pantallaTitulo.js";
 import { dibujarMapa, dibujarSubmundo, dibujarTienda, ITEMS_TIENDA } from "./ui/mapaMundo.js";
 import { dibujarResultados, dibujarDerrota } from "./ui/resultados.js";
 import { dibujarConfiguracion } from "./ui/configuracion.js";
+import { dibujarIngresoNombre, dibujarLeaderboard } from "./ui/leaderboard.js";
+import { iniciarControlesMovil } from "./controles_movil.js";
+import { crearIntro, crearIntroJefe, crearVictoriaFinal } from "./cinematicas/intro.js";
+import { cargarLogros, desbloquearLogro, DEFINICIONES_LOGROS, guardarLogros } from "./logros.js";
 
 const canvas = document.getElementById("juego");
 const ctx = canvas.getContext("2d");
 
-construirSprites();
+iniciarControlesMovil();
 
 const juego = {
-  estado: "titulo",
+  estado: "carga",
   t: 0,
   dt: 0,
   ultimo: 0,
@@ -51,10 +56,40 @@ const juego = {
   invertido: 0,
   victoriaFinal: false,
   extraVida: false,
+  logros: cargarLogros(),
+  notificaciones: [],
+  pausaMenu: 0,
+  nombreEntrada: guardado.nombreJugador || "",
+  letraActual: "A",
+  posicionPendiente: null,
+  entradaLeaderboard: null,
+  confirmarResetTabla: false,
+  cinematica: null,
+  siguienteEstadoCinematica: "titulo",
+  cargaProgreso: 0,
+  spritesListos: false,
 
   iniciar() {
-    this.jugador.configurar(guardado.personaje, guardado);
     requestAnimationFrame(this.bucle.bind(this));
+    this.cargarSprites();
+  },
+
+  async cargarSprites() {
+    for (let i = 0; i <= 6; i++) {
+      this.cargaProgreso = i / 7;
+      await new Promise(resolve => setTimeout(resolve, 45));
+    }
+    construirSprites();
+    this.cargaProgreso = 1;
+    this.spritesListos = true;
+    this.jugador.configurar(guardado.personaje, guardado);
+    if (!guardado.introVista) {
+      this.cinematica = crearIntro();
+      this.siguienteEstadoCinematica = "titulo";
+      this.cambiar("cinematica_intro");
+    } else {
+      this.cambiar("titulo");
+    }
   },
 
   bucle(ts) {
@@ -78,6 +113,7 @@ const juego = {
     this.mundo = id;
     this.subNivel = subId;
     this.nivel = crearSubNivel(id, subId);
+    audio.cambiarMundo(id);
     this.jugador.configurar(guardado.personaje, guardado);
     this.jugador.aereo = ["aereo", "submarino"].includes(this.nivel.modo);
     this.jugador.x = this.nivel.modo === "jefe" ? 145 : 110;
@@ -89,7 +125,13 @@ const juego = {
     this.invertido = 0;
     this.balas.limpiar();
     this.particulas.limpiar();
-    this.cambiar("jugar");
+    if (subId === 3 && this.nivel.jefe) {
+      this.cinematica = crearIntroJefe(this.nivel.jefe);
+      this.siguienteEstadoCinematica = "jugar";
+      this.cambiar("cinematica_jefe");
+    } else {
+      this.cambiar("jugar");
+    }
   },
 
   reiniciarNivel() {
@@ -108,6 +150,18 @@ const juego = {
       this.vidas++;
       this.extraVida = true;
     }
+    if (this.combo >= 5) this.logro("comboMaestro");
+  },
+
+  logro(id) {
+    const logro = desbloquearLogro(this.logros, id);
+    if (!logro) return;
+    this.notificaciones.push({ texto: `LOGRO: ${logro.nombre}`, vida: 3 });
+    audio.sfx("victoria");
+  },
+
+  guardarLogros() {
+    guardarLogros(this.logros);
   },
 
   completarNivel() {
@@ -116,9 +170,27 @@ const juego = {
     guardado.monedas = this.monedas;
     guardado.record = Math.max(guardado.record, this.puntos);
     this.resultado = this.calcularGrado();
+    if (this.jugador.golpes === 0) this.logro("sinRasguino");
+    if (this.nivel.monedas.every(c => c.tomada)) this.logro("coleccionista");
+    if (this.jugador.parries >= 5) this.logro("parryMaestro");
+    if (this.subNivel === 1 && this.tiempo < 30) this.logro("velocista");
     registrarGrado(this.mundo, this.resultado.grado, this.subNivel);
     persistir();
-    this.cambiar("resultados");
+    const tabla = obtenerLeaderboard();
+    const entra = tabla.length < 10 || this.puntos > (tabla[tabla.length - 1]?.puntos || 0);
+    if (this.victoriaFinal) {
+      this.cinematica = crearVictoriaFinal(this);
+      this.siguienteEstadoCinematica = entra ? "ingresar_nombre" : "resultados";
+      this.cambiar("cinematica_victoria");
+    } else if (entra) {
+      const provisional = [...tabla, { puntos: this.puntos }].sort((a, b) => b.puntos - a.puntos);
+      this.posicionPendiente = provisional.findIndex(e => e.puntos === this.puntos) + 1;
+      this.nombreEntrada = guardado.nombreJugador || "";
+      this.letraActual = "A";
+      this.cambiar("ingresar_nombre");
+    } else {
+      this.cambiar("resultados");
+    }
   },
 
   calcularGrado() {
@@ -159,7 +231,9 @@ const juego = {
     this.oscuridad = Math.max(0, this.oscuridad - dt * 0.22);
     this.invertido = Math.max(0, this.invertido - dt);
     guardado.mejoraSuper = (guardado.mejoras.super || 0) * 0.35;
-    if (this.estado === "titulo") {
+    if (this.estado === "carga") {
+      return;
+    } else if (this.estado === "titulo") {
       if (input.confirmar()) this.cambiar("mapa");
       if (input.consumir("KeyP")) this.cambiar("personaje");
       if (input.consumir("KeyS")) this.cambiar("configuracion");
@@ -180,6 +254,8 @@ const juego = {
         this.cambiar("submundo");
       }
       if (input.consumir("KeyT")) this.cambiar("tienda");
+      if (input.consumir("KeyL")) this.cambiar("leaderboard");
+      if (input.consumir("KeyG")) this.cambiar("logros");
       if (input.consumir("KeyS")) this.cambiar("configuracion");
     } else if (this.estado === "submundo") {
       if (input.arriba()) this.subMenu = Math.max(0, this.subMenu - 1);
@@ -200,13 +276,77 @@ const juego = {
       if (input.pausa()) { this.cambiar("pausa"); return; }
       this.actualizarJuego(dt);
     } else if (this.estado === "pausa") {
-      if (input.pausa() || input.confirmar()) this.cambiar("jugar");
-      if (input.consumir("KeyQ")) this.cambiar("mapa");
+      if (input.arriba()) this.pausaMenu = Math.max(0, this.pausaMenu - 1);
+      if (input.abajo()) this.pausaMenu = Math.min(3, this.pausaMenu + 1);
+      if (input.atras()) this.cambiar("jugar");
+      if (input.confirmar()) {
+        if (this.pausaMenu === 0) this.cambiar("jugar");
+        if (this.pausaMenu === 1) this.reiniciarNivel();
+        if (this.pausaMenu === 2) this.cambiar("mapa");
+        if (this.pausaMenu === 3) this.cambiar("configuracion");
+      }
     } else if (this.estado === "derrota") {
       if (input.confirmar()) { this.vidas = 3; this.puntos = 0; this.extraVida = false; this.cambiar("mapa"); }
     } else if (this.estado === "resultados") {
       if (input.confirmar()) this.cambiar("mapa");
+    } else if (this.estado === "ingresar_nombre") {
+      this.actualizarIngresoNombre();
+    } else if (this.estado === "leaderboard") {
+      if (input.confirmar()) { this.confirmarResetTabla = false; this.cambiar("mapa"); }
+      if (input.consumir("KeyR")) {
+        if (this.confirmarResetTabla) {
+          limpiarLeaderboard();
+          this.entradaLeaderboard = null;
+          this.confirmarResetTabla = false;
+        } else {
+          this.confirmarResetTabla = true;
+        }
+      }
+    } else if (this.estado === "logros") {
+      if (input.confirmar() || input.atras()) this.cambiar("mapa");
+    } else if (this.estado.startsWith("cinematica_")) {
+      this.actualizarCinematica(dt);
     }
+  },
+
+  actualizarCinematica(dt) {
+    if (!this.cinematica) return;
+    this.cinematica.actualizar(dt);
+    const saltable = this.estado !== "cinematica_jefe" || this.cinematica.tiempo > 0.5;
+    if (saltable && input.cualquierPulso()) this.cinematica.saltar();
+    if (this.cinematica.terminada) {
+      if (this.estado === "cinematica_intro") {
+        guardado.introVista = true;
+        persistir();
+      }
+      const siguiente = this.siguienteEstadoCinematica;
+      this.cinematica = null;
+      this.cambiar(siguiente);
+    }
+  },
+
+  actualizarIngresoNombre() {
+    const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let idx = letras.indexOf(this.letraActual);
+    if (input.izq()) this.letraActual = letras[(idx + letras.length - 1) % letras.length];
+    if (input.der()) this.letraActual = letras[(idx + 1) % letras.length];
+    if (input.consumir("Backspace")) this.nombreEntrada = this.nombreEntrada.slice(0, -1);
+    if (input.consumir("Space") && this.nombreEntrada.length > 0) this.confirmarNombre();
+    if (input.confirmar()) {
+      if (this.nombreEntrada.length < 12) this.nombreEntrada += this.letraActual;
+      else this.confirmarNombre();
+    }
+  },
+
+  confirmarNombre() {
+    const nombre = this.nombreEntrada || "TACITA";
+    guardado.nombreJugador = nombre;
+    guardado.mostrarNombre = true;
+    persistir();
+    const pos = agregarPuntaje(nombre, this.puntos, this.mundo, this.resultado.grado);
+    this.posicionPendiente = pos;
+    this.entradaLeaderboard = { nombre: nombre.toUpperCase().slice(0, 12), puntos: this.puntos };
+    this.cambiar("leaderboard");
   },
 
   actualizarJuego(dt) {
@@ -214,6 +354,8 @@ const juego = {
     this.comboTiempo -= dt;
     if (this.comboTiempo <= 0) this.combo += (1 - this.combo) * (0.04 / (1 + (guardado.mejoras.combo || 0) * 0.45));
     this.jugador.actualizar(dt, this);
+    for (const n of this.notificaciones) n.vida -= dt;
+    this.notificaciones = this.notificaciones.filter(n => n.vida > 0);
     if (["aereo", "submarino"].includes(this.nivel.modo)) this.jugador.x += (this.nivel.submarino ? 65 : 92) * dt;
     this.camara.seguir(this.jugador, this.nivel.ancho);
     this.camara.actualizar(dt);
@@ -259,7 +401,7 @@ const juego = {
       dibujarHud(g, this);
       if (this.camara.lensFlare > 0) dibujarLensFlare(g, this.camara.lensFlare);
       if (this.oscuridad > 0) { g.fillStyle = `rgba(0,0,0,${this.oscuridad})`; g.fillRect(0, 0, ANCHO, ALTO); }
-      if (this.estado === "pausa") dibujarPausa(g);
+      if (this.estado === "pausa") dibujarPausa(g, this);
     } else if (this.estado === "titulo") dibujarTitulo(g, this);
     else if (this.estado === "personaje") dibujarSeleccion(g, this);
     else if (this.estado === "mapa") dibujarMapa(g, this);
@@ -268,6 +410,12 @@ const juego = {
     else if (this.estado === "configuracion") dibujarConfiguracion(g, this);
     else if (this.estado === "derrota") dibujarDerrota(g, this);
     else if (this.estado === "resultados") dibujarResultados(g, this);
+    else if (this.estado === "ingresar_nombre") dibujarIngresoNombre(g, this);
+    else if (this.estado === "leaderboard") dibujarLeaderboard(g, this);
+    else if (this.estado === "logros") dibujarLogros(g, this);
+    else if (this.estado.startsWith("cinematica_")) this.cinematica?.dibujar(g);
+    else if (this.estado === "carga") dibujarCarga(g, this);
+    dibujarNotificaciones(g, this);
     dibujarPelicula(g, this.t);
     dibujarCortina(g, this.cortina);
   }
@@ -543,6 +691,64 @@ function dibujarCortina(g, v) {
     g.fillRect(ANCHO - ancho + 6, y, 12, 24);
   }
   g.restore();
+}
+
+function dibujarNotificaciones(g, juego) {
+  juego.notificaciones.forEach((n, i) => {
+    g.save();
+    const p = Math.min(1, n.vida / 0.35);
+    g.globalAlpha = Math.min(1, n.vida);
+    tinta(g, "rgba(29,18,13,0.88)", "#ffef9b", 4);
+    g.beginPath();
+    g.roundRect(610 + (1 - p) * 220, 86 + i * 58, 310, 46, 8);
+    g.fill();
+    g.stroke();
+    texto(g, n.texto, 765 + (1 - p) * 220, 109 + i * 58, 20, "center", "#ffef9b");
+    g.restore();
+  });
+}
+
+function dibujarLogros(g, juego) {
+  const grad = g.createLinearGradient(0, 0, 0, ALTO);
+  grad.addColorStop(0, "#6f563d");
+  grad.addColorStop(1, "#211611");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, ANCHO, ALTO);
+  texto(g, "LOGROS", 480, 72, 56, "center", "#ffef9b");
+  Object.entries(DEFINICIONES_LOGROS).forEach(([id, logro], i) => {
+    const y = 155 + i * 70;
+    const abierto = juego.logros.desbloqueados[id];
+    tinta(g, abierto ? "#d8a342" : "#5d5044", "#1a100c", 4);
+    g.beginPath();
+    g.arc(190, y, 24, 0, TAU);
+    g.fill();
+    g.stroke();
+    texto(g, abierto ? "OK" : "?", 190, y, 17, "center", "#1a100c");
+    texto(g, logro.nombre, 430, y - 8, 28, "left", abierto ? "#f4e3bd" : "#9b8a6c");
+    texto(g, abierto ? `Desbloqueado ${abierto}` : "Pendiente", 430, y + 22, 18, "left", abierto ? "#ffef9b" : "#8e8576");
+  });
+  texto(g, "ENTER/ESC: MAPA", 480, 650, 24);
+}
+
+function dibujarCarga(g, juego) {
+  g.fillStyle = "#211611";
+  g.fillRect(0, 0, ANCHO, ALTO);
+  texto(g, "Preparando la tinta...", 480, 265 + Math.sin(juego.t * 5) * 4, 38, "center", "#f1dfb8");
+  tinta(g, "#3b2921", "#1a100c", 5);
+  g.beginPath();
+  g.roundRect(250, 350, 460, 36, 8);
+  g.fill();
+  g.stroke();
+  g.fillStyle = "#d8a342";
+  g.fillRect(258, 358, 444 * juego.cargaProgreso, 20);
+  const x = 258 + 444 * juego.cargaProgreso;
+  g.fillStyle = "#f3e1bd";
+  g.strokeStyle = "#1a100c";
+  g.lineWidth = 4;
+  g.beginPath();
+  g.ellipse(x, 330 + Math.sin(juego.t * 16) * 5, 18, 22, 0, 0, TAU);
+  g.fill();
+  g.stroke();
 }
 
 window.juegoPorcelana = juego;

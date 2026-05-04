@@ -30,15 +30,23 @@ export function dibujarHud(g, juego) {
     }
     texto(g, juego.nivel.jefe.dialogo, 480, 104, 18, "center", "#ffef9b");
   }
-  if (juego.combo > 1.2) texto(g, `COMBO x${juego.combo.toFixed(1)}`, juego.jugador.x - juego.camara.x, juego.jugador.y - 82, 22, "center", "#ffef9b");
+  if (juego.combo > 2) {
+    const tam = juego.combo >= 5 ? 42 : juego.combo >= 4 ? 34 : juego.combo >= 3 ? 28 : 22;
+    const color = juego.combo >= 5 ? "#ffef9b" : juego.combo >= 4 ? "#c74334" : juego.combo >= 3 ? "#e0924e" : "#ffef9b";
+    texto(g, `x${juego.combo.toFixed(1)}`, juego.jugador.x - juego.camara.x, juego.jugador.y - 88 + Math.sin(juego.t * 8) * 5, tam, "center", color);
+  }
   g.restore();
 }
 
-export function dibujarPausa(g) {
+export function dibujarPausa(g, juego) {
   g.save();
   g.fillStyle = "rgba(20, 11, 8, 0.62)";
   g.fillRect(0, 0, 960, 720);
-  texto(g, "PAUSA", 480, 285, 70);
-  texto(g, "ENTER: CONTINUAR    Q: MAPA", 480, 370, 26);
+  texto(g, "PAUSA", 480, 230, 70);
+  ["CONTINUAR", "REINICIAR NIVEL", "VOLVER AL MAPA", "CONFIGURACION"].forEach((op, i) => {
+    texto(g, `${juego.pausaMenu === i ? ">" : " "} ${op}`, 480, 330 + i * 44, 27, "center", juego.pausaMenu === i ? "#ffef9b" : "#f1dfb8");
+  });
+  texto(g, "FLECHAS: ELEGIR    ENTER: CONFIRMAR", 480, 555, 21);
+  texto(g, "Z/ESPACIO salto  X disparo  C dash  V super", 480, 605, 19, "center", "#d8a342");
   g.restore();
 }

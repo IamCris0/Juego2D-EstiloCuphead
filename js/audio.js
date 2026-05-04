@@ -9,6 +9,9 @@ export const audio = {
   paso: 0,
   volumen: guardado.volumen,
   silencio: guardado.silencio,
+  mundo: 1,
+  tempo: 0.145,
+  octava: 1,
 
   iniciar() {
     if (!this.ctx) {
@@ -36,6 +39,12 @@ export const audio = {
     guardado.silencio = this.silencio;
     if (this.master) this.master.gain.value = this.silencio ? 0 : this.volumen;
     persistir();
+  },
+
+  cambiarMundo(id) {
+    this.mundo = id;
+    this.tempo = [0, 0.13, 0.18, 0.105, 0.22, 0.09][id] || 0.145;
+    this.octava = [0, 0.8, 1.45, 1.1, 0.65, 0.9][id] || 1;
   },
 
   tono(freq, dur, tipo = "square", gan = 0.1, desliz = 0, destino = null) {
@@ -94,12 +103,14 @@ export const audio = {
     while (this.siguiente < ahora + 0.08) {
       const beat = this.paso % 16;
       const swing = beat % 2 ? 0.055 : 0;
-      const bajo = [98, 123, 131, 147, 110, 139, 147, 165][Math.floor(beat / 2) % 8];
+      const bajo = [98, 123, 131, 147, 110, 139, 147, 165][Math.floor(beat / 2) % 8] * this.octava;
       if (beat % 2 === 0) this.tono(bajo, 0.16, "triangle", 0.045, 0, this.musica);
-      if ([0, 3, 6, 10, 13].includes(beat)) this.tono([392, 466, 523, 587][beat % 4], 0.12, "square", 0.025, -8, this.musica);
-      if (beat % 4 === 2) this.ruido(0.025, 0.015);
-      if (beat === 7 || beat === 15) this.tono(740, 0.05, "sawtooth", 0.025, 130, this.musica);
-      this.siguiente += 0.145 + swing;
+      const tipo = this.mundo === 3 ? "triangle" : this.mundo === 5 ? "sawtooth" : "square";
+      const dur = this.mundo === 2 || this.mundo === 4 ? 0.28 : 0.12;
+      if ([0, 3, 6, 10, 13].includes(beat)) this.tono([392, 466, 523, 587][beat % 4] * this.octava, dur, tipo, 0.025, -8, this.musica);
+      if (beat % (this.mundo === 1 || this.mundo === 5 ? 2 : 4) === 0) this.ruido(this.mundo === 5 ? 0.05 : 0.025, this.mundo === 5 ? 0.025 : 0.015);
+      if (beat === 7 || beat === 15) this.tono(740 * this.octava, 0.05, this.mundo === 4 ? "sine" : "sawtooth", 0.025, 130, this.musica);
+      this.siguiente += this.tempo + swing;
       this.paso++;
     }
   }

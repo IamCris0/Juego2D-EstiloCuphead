@@ -44,7 +44,7 @@ export function dibujarMapa(g, juego) {
     const grado = juego.guardado.grados[`${i + 1}-3`] || juego.guardado.grados[i + 1];
     if (grado) texto(g, `GRADO ${grado}`, n.x, n.y + 101, 17, "center", "#ffef9b");
   });
-  texto(g, "ENTER: JUGAR    T: TIENDA    S: CONFIGURACION", 480, 635, 23);
+  texto(g, "ENTER: JUGAR    T: TIENDA    L: CAMPEONES    G: LOGROS    S: CONFIGURACION", 480, 635, 19);
   if (juego.guardado.dificil) texto(g, "MODO DIFICIL DESBLOQUEADO", 480, 675, 20, "center", "#ffef9b");
 }
 

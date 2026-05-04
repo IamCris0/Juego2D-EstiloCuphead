@@ -260,12 +260,14 @@ export class Jugador {
     g.restore();
     g.save();
     g.strokeStyle = "#f5d66c";
-    g.lineWidth = 3;
+    g.lineWidth = 2;
+    g.globalAlpha = 0.55;
     g.setLineDash([8, 8]);
     g.beginPath();
     g.moveTo(this.x, this.y - 10);
-    g.lineTo(this.x + this.aimX * 64, this.y - 10 + this.aimY * 64);
+    g.lineTo(this.x + this.aimX * 48, this.y - 10 + this.aimY * 48);
     g.stroke();
+    g.setLineDash([]);
     g.restore();
   }
 }

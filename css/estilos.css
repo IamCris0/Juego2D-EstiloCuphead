@@ -44,3 +44,59 @@ canvas {
   pointer-events: none;
   text-shadow: 0 1px 2px #000;
 }
+
+.control-movil {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .control-movil {
+    position: fixed;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+    z-index: 5;
+    font-family: system-ui, sans-serif;
+  }
+
+  .control-movil .joystick {
+    position: absolute;
+    left: 34px;
+    bottom: 34px;
+    width: 90px;
+    height: 90px;
+    border: 3px solid rgba(255, 239, 185, 0.55);
+    border-radius: 50%;
+    background: rgba(20, 12, 8, 0.35);
+    pointer-events: auto;
+    touch-action: none;
+  }
+
+  .control-movil .stick {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.72);
+    transform: translate(-50%, -50%);
+  }
+
+  .control-movil .boton {
+    position: absolute;
+    border: 3px solid rgba(26, 16, 12, 0.8);
+    border-radius: 50%;
+    color: #1a100c;
+    font-weight: 900;
+    pointer-events: auto;
+    touch-action: none;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+  }
+
+  .saltar { right: 36px; bottom: 42px; width: 86px; height: 86px; background: #6ca6d9; }
+  .disparar { right: 132px; bottom: 92px; width: 78px; height: 78px; background: #d95b4f; }
+  .dash { right: 128px; bottom: 18px; width: 62px; height: 62px; background: #f0c85a; font-size: 12px; }
+  .super { right: 30px; top: 92px; width: 72px; height: 72px; background: #72bd72; }
+  .pausa { right: 18px; top: 18px; width: 70px; height: 42px; border-radius: 12px; background: #f1dfb8; }
+}

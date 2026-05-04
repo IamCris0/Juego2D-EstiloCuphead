@@ -10,6 +10,9 @@ function cargar() {
     volumen: 0.55,
     silencio: false,
     personaje: "tacita",
+    mostrarNombre: false,
+    nombreJugador: "",
+    introVista: false,
     mejoras: { vida: 0, cadencia: 0, velocidad: 0, super: 0, doble: 0, parryAuto: 0, escudo: 0, dashCargado: 0, rebote: 0, combo: 0 },
     grados: {},
     dificil: false
