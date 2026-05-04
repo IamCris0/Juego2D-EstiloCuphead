@@ -32,6 +32,9 @@ export class SistemaParticulas {
   }
 
   dibujar(g) {
+    g.save();
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
     this.pool.cada(p => {
       g.save();
       g.globalAlpha = clamp(p.vida / p.max, 0, 1);
@@ -44,6 +47,7 @@ export class SistemaParticulas {
       g.stroke();
       g.restore();
     });
+    g.restore();
   }
 
   limpiar() {

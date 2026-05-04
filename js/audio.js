@@ -43,8 +43,14 @@ export const audio = {
 
   cambiarMundo(id) {
     this.mundo = id;
-    this.tempo = [0, 0.13, 0.18, 0.105, 0.22, 0.09][id] || 0.145;
-    this.octava = [0, 0.8, 1.45, 1.1, 0.65, 0.9][id] || 1;
+    const tempos = [0, 0.13, 0.19, 0.105, 0.23, 0.088];
+    const octavas = [0, 0.8, 1.45, 1.1, 0.62, 0.95];
+    this.tempo = tempos[id] || 0.145;
+    this.octava = octavas[id] || 1;
+    if (this.ctx) {
+      this.siguiente = this.ctx.currentTime + 0.05;
+      this.paso = 0;
+    }
   },
 
   tono(freq, dur, tipo = "square", gan = 0.1, desliz = 0, destino = null) {
@@ -103,13 +109,69 @@ export const audio = {
     while (this.siguiente < ahora + 0.08) {
       const beat = this.paso % 16;
       const swing = beat % 2 ? 0.055 : 0;
-      const bajo = [98, 123, 131, 147, 110, 139, 147, 165][Math.floor(beat / 2) % 8] * this.octava;
-      if (beat % 2 === 0) this.tono(bajo, 0.16, "triangle", 0.045, 0, this.musica);
-      const tipo = this.mundo === 3 ? "triangle" : this.mundo === 5 ? "sawtooth" : "square";
-      const dur = this.mundo === 2 || this.mundo === 4 ? 0.28 : 0.12;
-      if ([0, 3, 6, 10, 13].includes(beat)) this.tono([392, 466, 523, 587][beat % 4] * this.octava, dur, tipo, 0.025, -8, this.musica);
-      if (beat % (this.mundo === 1 || this.mundo === 5 ? 2 : 4) === 0) this.ruido(this.mundo === 5 ? 0.05 : 0.025, this.mundo === 5 ? 0.025 : 0.015);
-      if (beat === 7 || beat === 15) this.tono(740 * this.octava, 0.05, this.mundo === 4 ? "sine" : "sawtooth", 0.025, 130, this.musica);
+
+      const escalasBajos = {
+        1: [98, 123, 131, 147, 110, 139, 147, 165],
+        2: [196, 220, 246, 261, 196, 220, 246, 294],
+        3: [130, 146, 155, 174, 130, 155, 174, 196],
+        4: [65, 73, 82, 87, 65, 73, 87, 98],
+        5: [110, 110, 123, 123, 98, 98, 131, 131]
+      };
+      const bajos = escalasBajos[this.mundo] || escalasBajos[1];
+      const bajo = bajos[Math.floor(beat / 2) % 8];
+
+      const tiposBajo = { 1: "triangle", 2: "sine", 3: "triangle", 4: "sine", 5: "sawtooth" };
+      const tipoMelodia = { 1: "square", 2: "triangle", 3: "triangle", 4: "sine", 5: "sawtooth" };
+      const tipoBajo = tiposBajo[this.mundo] || "triangle";
+      const tipo = tipoMelodia[this.mundo] || "square";
+
+      if (beat % (this.mundo === 5 ? 1 : 2) === 0) {
+        this.tono(bajo, 0.16, tipoBajo, 0.045, 0, this.musica);
+      }
+
+      const escalasArmonias = {
+        1: [392, 466, 523, 587],
+        2: [523, 587, 659, 784],
+        3: [349, 392, 440, 523],
+        4: [261, 294, 329, 392],
+        5: [220, 220, 247, 262]
+      };
+      const armonias = escalasArmonias[this.mundo] || escalasArmonias[1];
+
+      const durNota = { 1: 0.12, 2: 0.32, 3: 0.09, 4: 0.38, 5: 0.07 };
+      const dur = durNota[this.mundo] || 0.12;
+
+      const patronesMelodia = {
+        1: [0, 3, 6, 10, 13],
+        2: [0, 4, 8, 12],
+        3: [0, 2, 4, 6, 8, 10, 12, 14],
+        4: [0, 8],
+        5: [0, 1, 4, 5, 8, 9, 12, 13]
+      };
+      const patron = patronesMelodia[this.mundo] || patronesMelodia[1];
+
+      if (patron.includes(beat)) {
+        this.tono(armonias[beat % armonias.length], dur, tipo, 0.028, -8, this.musica);
+      }
+
+      const patronRuido = {
+        1: beat % 4 === 2,
+        2: beat % 8 === 0,
+        3: beat % 2 === 1,
+        4: beat === 0 || beat === 8,
+        5: beat % 2 === 0
+      };
+      if (patronRuido[this.mundo]) {
+        const volRuido = { 1: 0.015, 2: 0.008, 3: 0.022, 4: 0.01, 5: 0.03 };
+        this.ruido(this.mundo === 5 ? 0.06 : 0.025, volRuido[this.mundo] || 0.015);
+      }
+
+      if (beat === 7 || beat === 15) {
+        const accentFreqs = { 1: 740, 2: 1047, 3: 622, 4: 370, 5: 440 };
+        const accentTipos = { 1: "sawtooth", 2: "triangle", 3: "triangle", 4: "sine", 5: "sawtooth" };
+        this.tono(accentFreqs[this.mundo] || 740, 0.055, accentTipos[this.mundo] || "sawtooth", 0.028, 130, this.musica);
+      }
+
       this.siguiente += this.tempo + swing;
       this.paso++;
     }

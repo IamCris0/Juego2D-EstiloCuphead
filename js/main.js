@@ -394,7 +394,11 @@ const juego = {
       for (const c of this.nivel.monedas) dibujarMoneda(g, c, this.t);
       for (const e of this.nivel.enemigos) e.dibujar?.(g, this.t);
       this.nivel.jefe?.dibujar(g, this.t);
+      g.setLineDash([]);
+      g.lineDashOffset = 0;
       this.balas.dibujar(g);
+      g.setLineDash([]);
+      g.lineDashOffset = 0;
       this.particulas.dibujar(g);
       this.jugador.dibujar(g, this.t);
       g.restore();

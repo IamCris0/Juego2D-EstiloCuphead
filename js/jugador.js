@@ -210,6 +210,8 @@ export class Jugador {
   }
 
   dibujar(g, t) {
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
     for (const f of this.fantasmas) {
       g.save();
       g.globalAlpha = f.vida / 0.5;
@@ -258,7 +260,10 @@ export class Jugador {
       }
     }
     g.restore();
+    // Indicador de punteria - al final, sobre todo lo demas
     g.save();
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
     g.strokeStyle = "#f5d66c";
     g.lineWidth = 2;
     g.globalAlpha = 0.55;
@@ -268,6 +273,7 @@ export class Jugador {
     g.lineTo(this.x + this.aimX * 48, this.y - 10 + this.aimY * 48);
     g.stroke();
     g.setLineDash([]);
+    g.lineDashOffset = 0;
     g.restore();
   }
 }

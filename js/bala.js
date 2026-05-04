@@ -68,7 +68,9 @@ export class SistemaBalas {
   }
 
   dibujar(g) {
+    g.save();
     g.setLineDash([]);
+    g.lineDashOffset = 0;
     this.pool.cada(b => {
       g.save();
       g.translate(b.x, b.y);
@@ -87,6 +89,7 @@ export class SistemaBalas {
       }
       g.restore();
     });
+    g.restore();
   }
 
   limpiar() {
