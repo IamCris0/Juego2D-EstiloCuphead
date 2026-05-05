@@ -29,3 +29,10 @@ export function agregarPuntaje(nombre, puntos, mundo, grado) {
 export function limpiarLeaderboard() {
   localStorage.removeItem(CLAVE_LB);
 }
+
+export async function agregarPuntajeConFallback(nombre, puntos, mundo, grado, online) {
+  let posicion = null;
+  if (online?.disponible) posicion = await online.insertar(nombre, puntos, mundo, grado);
+  if (posicion === null) posicion = agregarPuntaje(nombre, puntos, mundo, grado);
+  return posicion;
+}

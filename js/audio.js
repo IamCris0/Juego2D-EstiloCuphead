@@ -12,6 +12,7 @@ export const audio = {
   mundo: 1,
   tempo: 0.145,
   octava: 1,
+  intensidad: 0,
 
   iniciar() {
     if (!this.ctx) {
@@ -97,7 +98,14 @@ export const audio = {
       derrota: () => [330, 260, 190, 120].forEach((f, i) => setTimeout(() => this.tono(f, 0.18, "triangle", 0.12), i * 150)),
       parry: () => { this.tono(980, 0.09, "sine", 0.12, 460); this.tono(1470, 0.06, "triangle", 0.07); },
       super: () => { this.tono(90, 0.5, "sawtooth", 0.16, 520); this.ruido(0.5, 0.1); },
-      comprar: () => [620, 780, 980].forEach((f, i) => setTimeout(() => this.tono(f, 0.08, "triangle", 0.07), i * 70))
+      comprar: () => [620, 780, 980].forEach((f, i) => setTimeout(() => this.tono(f, 0.08, "triangle", 0.07), i * 70)),
+      melee: () => { this.tono(180, 0.06, "square", 0.12, 180); this.ruido(0.05, 0.18); setTimeout(() => this.tono(350, 0.08, "triangle", 0.08), 40); },
+      deslizar: () => this.ruido(0.25, 0.06),
+      wallJump: () => { this.ruido(0.04, 0.12); this.tono(280, 0.1, "triangle", 0.07, 180); },
+      intro: () => { this.ruido(0.4, 0.06); setTimeout(() => this.tono(220, 0.3, "sine", 0.04), 200); },
+      maquinaEscribir: () => this.tono(rand(600, 900), 0.03, "square", 0.03),
+      boomJefe: () => { this.ruido(0.35, 0.22); this.tono(55, 0.35, "sawtooth", 0.18, -30); },
+      fanfarria: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.tono(f, 0.15, "square", 0.08), i * 90))
     };
     fx[nombre]?.();
   },
@@ -151,7 +159,8 @@ export const audio = {
       const patron = patronesMelodia[this.mundo] || patronesMelodia[1];
 
       if (patron.includes(beat)) {
-        this.tono(armonias[beat % armonias.length], dur, tipo, 0.028, -8, this.musica);
+        const freqMelodia = armonias[beat % armonias.length] * (1 + this.intensidad * 0.12);
+        this.tono(freqMelodia, dur, tipo, 0.028, -8, this.musica);
       }
 
       const patronRuido = {
@@ -172,7 +181,9 @@ export const audio = {
         this.tono(accentFreqs[this.mundo] || 740, 0.055, accentTipos[this.mundo] || "sawtooth", 0.028, 130, this.musica);
       }
 
-      this.siguiente += this.tempo + swing;
+      if (this.intensidad > 0 && beat % 2 === 0) this.ruido(0.035, 0.018 + this.intensidad * 0.02);
+      const tempoReal = this.tempo * (1 - this.intensidad * 0.15);
+      this.siguiente += tempoReal + swing;
       this.paso++;
     }
   }

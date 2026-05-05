@@ -1,4 +1,3 @@
-import { obtenerLeaderboard } from "../leaderboard.js";
 import { texto, tinta } from "../util.js";
 import { fondoMenu } from "./pantallaTitulo.js";
 
@@ -22,10 +21,12 @@ export function dibujarIngresoNombre(g, juego) {
 export function dibujarLeaderboard(g, juego) {
   fondoMenu(g, juego.t);
   texto(g, "TABLA DE CAMPEONES", 480, 72, 52, "center", "#ffef9b");
-  const tabla = obtenerLeaderboard();
+  texto(g, juego.pestanaLB === 0 ? "[ HOY ]    GLOBAL" : "HOY    [ GLOBAL ]", 480, 118, 24, "center", "#d8a342");
+  texto(g, juego.lbOnline?.disponible ? "● ONLINE" : "● LOCAL", 835, 80, 18, "center", juego.lbOnline?.disponible ? "#7ac16b" : "#8e8576");
+  const tabla = juego.pestanaLB === 0 ? juego.tablaHoy : juego.tablaGlobal;
   for (let i = 0; i < 10; i++) {
     const e = tabla[i];
-    const y = 140 + i * 46;
+    const y = 155 + i * 43;
     const reciente = juego.entradaLeaderboard && e && e.puntos === juego.entradaLeaderboard.puntos && e.nombre === juego.entradaLeaderboard.nombre;
     if (i === 0 && e) {
       g.save();
@@ -38,7 +39,7 @@ export function dibujarLeaderboard(g, juego) {
       g.stroke();
       g.restore();
     }
-    const color = reciente ? "#ffef9b" : i === 0 ? "#f5d66c" : "#f4e3bd";
+    const color = reciente ? (Math.sin(juego.t * 8) > 0 ? "#ffef9b" : "#d8a342") : i === 0 ? "#f5d66c" : "#f4e3bd";
     texto(g, e ? `${String(i + 1).padStart(2, "0")}  ${e.nombre.padEnd(12, " ")}  ${String(e.puntos).padStart(6, " ")}  M${e.mundo}  ${e.grado}  ${e.fecha}` : `${String(i + 1).padStart(2, "0")}  ---`, 480, y, 22, "center", color);
   }
   if (juego.confirmarResetTabla) texto(g, "PULSA R DE NUEVO PARA BORRAR LA TABLA", 480, 625, 24, "center", "#c74334");

@@ -47,11 +47,11 @@ export function construirSprites() {
   sprites.jugador = {};
   for (const [nombre, paleta] of Object.entries(colores)) {
     sprites.jugador[nombre] = {};
-    for (const estado of ["idle", "correr", "saltar", "caer", "disparar", "golpeado", "victoria"]) {
+    for (const estado of ["idle", "correr", "saltar", "caer", "disparar", "golpeado", "victoria", "deslizar", "golpe"]) {
       const frames = estado === "correr" ? 8 : estado === "victoria" ? 4 : 3;
       sprites.jugador[nombre][estado] = Array.from({ length: frames }, (_, i) => crearSprite(86, 98, g => {
         const bob = Math.sin(i / frames * TAU) * (estado === "idle" ? 3 : 6);
-        const estirar = estado === "saltar" ? 1.12 : estado === "caer" ? 0.88 : 1;
+        const estirar = estado === "saltar" ? 1.12 : estado === "caer" ? 0.88 : estado === "deslizar" ? 0.52 : 1;
         g.save();
         g.translate(43, 48 + bob);
         g.scale(1 / estirar, estirar);
@@ -77,10 +77,10 @@ export function construirSprites() {
         g.beginPath(); g.moveTo(12, 21); g.quadraticCurveTo(24 - paso, 37, 30, 45); g.stroke();
         g.beginPath(); g.moveTo(-21, 7); g.quadraticCurveTo(-36, 10 + paso * 0.4, -32, 24); g.stroke();
         g.beginPath(); g.moveTo(21, 7); g.quadraticCurveTo(38, 8 - paso * 0.4, 35, 23); g.stroke();
-        if (estado === "disparar") {
+        if (estado === "disparar" || estado === "golpe") {
           g.strokeStyle = "#1a100c"; g.lineWidth = 7;
-          g.beginPath(); g.moveTo(20, 5); g.lineTo(46, -1); g.stroke();
-          g.fillStyle = "#ffef9b"; g.beginPath(); g.arc(51, -1, 8, 0, TAU); g.fill();
+          g.beginPath(); g.moveTo(20, 5); g.lineTo(estado === "golpe" ? 56 : 46, estado === "golpe" ? -6 : -1); g.stroke();
+          g.fillStyle = estado === "golpe" ? "#fff6dd" : "#ffef9b"; g.beginPath(); g.arc(estado === "golpe" ? 62 : 51, estado === "golpe" ? -6 : -1, estado === "golpe" ? 11 : 8, 0, TAU); g.fill();
         }
         g.restore();
       }));

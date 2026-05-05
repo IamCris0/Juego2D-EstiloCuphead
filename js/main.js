@@ -7,7 +7,8 @@ import { SistemaBalas } from "./bala.js";
 import { Jugador } from "./jugador.js";
 import { Enemigo } from "./enemigo.js";
 import { crearSubNivel, MUNDOS } from "./nivel.js";
-import { agregarPuntaje, limpiarLeaderboard, obtenerLeaderboard } from "./leaderboard.js";
+import { agregarPuntajeConFallback, limpiarLeaderboard, obtenerLeaderboard } from "./leaderboard.js";
+import { leaderboardOnline } from "./leaderboard_online.js";
 import { construirSprites } from "../sprites/sprites.js";
 import { ANCHO, ALTO, TAU, aabb, clamp, rand, texto, tinta } from "./util.js";
 import { dibujarHud, dibujarPausa } from "./ui/hud.js";
@@ -64,6 +65,10 @@ const juego = {
   posicionPendiente: null,
   entradaLeaderboard: null,
   confirmarResetTabla: false,
+  pestanaLB: 0,
+  tablaHoy: [],
+  tablaGlobal: [],
+  lbOnline: null,
   cinematica: null,
   siguienteEstadoCinematica: "titulo",
   cargaProgreso: 0,
@@ -82,6 +87,13 @@ const juego = {
     construirSprites();
     this.cargaProgreso = 1;
     this.spritesListos = true;
+    this.lbOnline = leaderboardOnline;
+    leaderboardOnline.verificar().then(ok => {
+      if (ok) {
+        this.notificaciones.push({ texto: "TABLA ONLINE ACTIVA", vida: 3 });
+        this.recargarLeaderboard();
+      }
+    });
     this.jugador.configurar(guardado.personaje, guardado);
     if (!guardado.introVista) {
       this.cinematica = crearIntro();
@@ -107,6 +119,7 @@ const juego = {
     this.estado = estado;
     this.menu = 0;
     this.cortina = 0.55;
+    if (estado === "leaderboard") this.recargarLeaderboard();
   },
 
   iniciarNivel(id, subId = 1) {
@@ -292,6 +305,8 @@ const juego = {
     } else if (this.estado === "ingresar_nombre") {
       this.actualizarIngresoNombre();
     } else if (this.estado === "leaderboard") {
+      if (input.izq()) { this.pestanaLB = 0; this.recargarLeaderboard(); }
+      if (input.der()) { this.pestanaLB = 1; this.recargarLeaderboard(); }
       if (input.confirmar()) { this.confirmarResetTabla = false; this.cambiar("mapa"); }
       if (input.consumir("KeyR")) {
         if (this.confirmarResetTabla) {
@@ -339,14 +354,31 @@ const juego = {
   },
 
   confirmarNombre() {
+    this.confirmarNombreAsync();
+  },
+
+  async confirmarNombreAsync() {
     const nombre = this.nombreEntrada || "TACITA";
     guardado.nombreJugador = nombre;
     guardado.mostrarNombre = true;
     persistir();
-    const pos = agregarPuntaje(nombre, this.puntos, this.mundo, this.resultado.grado);
+    const pos = await agregarPuntajeConFallback(nombre, this.puntos, this.mundo, this.resultado.grado, this.lbOnline);
     this.posicionPendiente = pos;
     this.entradaLeaderboard = { nombre: nombre.toUpperCase().slice(0, 12), puntos: this.puntos };
+    await this.recargarLeaderboard();
     this.cambiar("leaderboard");
+  },
+
+  async recargarLeaderboard() {
+    if (this.lbOnline?.disponible) {
+      this.tablaHoy = await this.lbOnline.obtenerHoy();
+      this.tablaGlobal = await this.lbOnline.obtenerGlobal();
+    } else {
+      const local = obtenerLeaderboard();
+      const hoy = new Date().toLocaleDateString("es");
+      this.tablaHoy = local.filter(e => e.fecha === hoy);
+      this.tablaGlobal = local;
+    }
   },
 
   actualizarJuego(dt) {
@@ -361,6 +393,12 @@ const juego = {
     this.camara.actualizar(dt);
     for (const e of this.nivel.enemigos) e.actualizar?.(dt, this);
     this.nivel.jefe?.actualizar(dt, this);
+    if (this.nivel.jefe?.activo) {
+      const r = this.nivel.jefe.hp / this.nivel.jefe.maxHp;
+      audio.intensidad = r < 0.25 ? 1 : r < 0.5 ? 0.5 : 0;
+    } else {
+      audio.intensidad = 0;
+    }
     this.balas.actualizar(dt, this);
     this.particulas.actualizar(dt);
     this.recogerMonedas();
@@ -402,6 +440,9 @@ const juego = {
       this.particulas.dibujar(g);
       this.jugador.dibujar(g, this.t);
       g.restore();
+      g.setLineDash([]);
+      g.lineDashOffset = 0;
+      this.jugador.dibujarPunteria(g);
       dibujarHud(g, this);
       if (this.camara.lensFlare > 0) dibujarLensFlare(g, this.camara.lensFlare);
       if (this.oscuridad > 0) { g.fillStyle = `rgba(0,0,0,${this.oscuridad})`; g.fillRect(0, 0, ANCHO, ALTO); }

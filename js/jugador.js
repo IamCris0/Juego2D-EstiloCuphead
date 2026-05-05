@@ -1,5 +1,5 @@
 import { input } from "./input.js";
-import { TAU, clamp, lerp } from "./util.js";
+import { TAU, aabb, clamp, lerp } from "./util.js";
 import { sprites } from "../sprites/sprites.js";
 
 export const PERSONAJES = {
@@ -28,6 +28,7 @@ export class Jugador {
       maxHp: p.hp + mejoras.vida, hp: p.hp + mejoras.vida,
       saltosMax: p.saltos, saltos: 0, enSuelo: false, inv: 0,
       dash: 0, dashCd: 0, disparoCd: 0, estado: "idle", aereo: false,
+      slide: 0, slideCd: 0, melee: 0, meleeCd: 0, dashesAire: 0, dashAzul: 0,
       super: mejoras.super * 12, parries: 0, golpes: 0, disparos: 0, aciertos: 0,
       aimX: 1, aimY: 0, muerto: false, victoria: false, fantasmas: [],
       muerteRot: 0, sombrero: 0, aura: 0, escudos: mejoras.escudo || 0
@@ -35,7 +36,8 @@ export class Jugador {
   }
 
   rect() {
-    return { x: this.x - this.w / 2, y: this.y - this.h / 2, w: this.w, h: this.h };
+    const h = this.slide > 0 ? this.h * 0.5 : this.h;
+    return { x: this.x - this.w / 2, y: this.y - h / 2, w: this.w, h };
   }
 
   herir(juego) {
@@ -89,6 +91,11 @@ export class Jugador {
     }
     this.inv = Math.max(0, this.inv - dt);
     this.dashCd = Math.max(0, this.dashCd - dt);
+    this.slideCd = Math.max(0, this.slideCd - dt);
+    this.meleeCd = Math.max(0, this.meleeCd - dt);
+    this.dashAzul = Math.max(0, this.dashAzul - dt);
+    if (this.slide > 0) this.slide -= dt;
+    if (this.melee > 0) this.melee -= dt;
     this.disparoCd = Math.max(0, this.disparoCd - dt);
     this.aura = Math.max(0, this.aura - dt);
     const mx = clamp(input.x(), -1, 1);
@@ -102,10 +109,14 @@ export class Jugador {
       this.aimX = this.direccion;
       this.aimY = 0;
     }
+    if (input.consumir("KeyQ") && this.meleeCd <= 0) this.iniciarMelee(juego);
     if (this.aereo) this.actualizarAereo(dt, mx, my, juego);
     else this.actualizarPlataforma(dt, mx, juego);
 
-    if (input.dash() && this.dashCd <= 0) this.iniciarDash(juego);
+    if (input.dash()) {
+      if (my > 0.45 && this.enSuelo && this.slideCd <= 0) this.iniciarDeslizar(juego);
+      else if (this.puedeDashear()) this.iniciarDash(juego, mx, my);
+    }
     const dashPrevio = this.dash;
     if (this.dash > 0) {
       this.dash -= dt;
@@ -126,8 +137,15 @@ export class Jugador {
     const p = PERSONAJES[this.tipo];
     const mejoras = this.guardado?.mejoras || { velocidad: 0 };
     const velocidad = 250 + mejoras.velocidad * 28;
-    this.vx = this.dash > 0 ? this.vx : lerp(this.vx, mx * velocidad, 0.18);
-    if (input.salto() && this.saltos < this.saltosMax) {
+    this.vx = this.dash > 0 || this.slide > 0 ? this.vx : lerp(this.vx, mx * velocidad, 0.18);
+    const salto = input.salto();
+    if (salto && this.tipo === "tetito" && !this.enSuelo && (this.x <= 45 || this.x >= juego.nivel.ancho - 45)) {
+      const lado = this.x <= 45 ? 1 : -1;
+      this.vx = lado * 420;
+      this.vy = -460;
+      juego.particulas.estallido(this.x, this.y + 20, "#f1dfb8", 12, 180);
+      juego.audio.sfx("wallJump");
+    } else if (salto && this.saltos < this.saltosMax) {
       this.vy = -520;
       this.saltos++;
       this.enSuelo = false;
@@ -146,12 +164,15 @@ export class Jugador {
         this.vy = 0;
         this.enSuelo = true;
         this.saltos = 0;
+        this.dashesAire = 0;
       }
     }
     if (this.y > 700) this.herir(juego);
     this.x = clamp(this.x, 35, juego.nivel.ancho - 35);
     if (this.estado !== "disparar" && this.estado !== "parry" && this.estado !== "golpeado") {
-      if (!this.enSuelo) this.estado = this.vy < 0 ? "saltar" : "caer";
+      if (this.slide > 0) this.estado = "deslizar";
+      else if (this.melee > 0) this.estado = "golpe";
+      else if (!this.enSuelo) this.estado = this.vy < 0 ? "saltar" : "caer";
       else this.estado = Math.abs(this.vx) > 25 ? "correr" : "idle";
     }
     if (p) this.sombrero = Math.max(0, this.sombrero - dt);
@@ -169,14 +190,55 @@ export class Jugador {
     this.estado = "idle";
   }
 
-  iniciarDash(juego) {
+  puedeDashear() {
+    const mejoraDoble = (this.guardado?.mejoras?.velocidad || 0) >= 3;
+    if (this.enSuelo || this.aereo) return this.dashCd <= 0;
+    return this.dashCd <= 0 || ((this.tipo === "tetito" || mejoraDoble) && this.dashesAire < 1);
+  }
+
+  iniciarDash(juego, mx = 0, my = 0) {
     const p = PERSONAJES[this.tipo];
+    const aireExtra = !this.enSuelo && this.dashCd > 0;
     this.dash = 0.16;
     this.dashCd = 0.65;
-    this.vx = this.direccion * p.dash;
+    if (aireExtra) {
+      const len = Math.hypot(mx, my) || 1;
+      this.vx = mx / len * p.dash;
+      this.vy = my / len * p.dash;
+      this.dashesAire++;
+      this.dashAzul = 0.18;
+    } else {
+      this.vx = this.direccion * p.dash;
+    }
     this.inv = Math.max(this.inv, 0.18);
     this.estado = "dash";
     juego.audio.sfx("dash");
+  }
+
+  iniciarDeslizar(juego) {
+    this.slide = 0.4;
+    this.slideCd = 1.2;
+    this.vx = this.direccion * 520;
+    this.estado = "deslizar";
+    juego.particulas.estallido(this.x, this.y + 26, "#d8a342", 10, 120);
+    juego.audio.sfx("deslizar");
+  }
+
+  iniciarMelee(juego) {
+    this.melee = 0.25;
+    this.meleeCd = 0.8;
+    this.estado = "golpe";
+    const zona = { x: this.x + this.direccion * 30 - 30, y: this.y - 40, w: 60, h: 80 };
+    for (const e of juego.nivel.enemigos) if (e.activo && aabb(zona, e.rect())) e.recibir(15, juego);
+    if (juego.nivel.jefe?.activo && aabb(zona, juego.nivel.jefe.rect())) juego.nivel.jefe.recibir(15, juego);
+    juego.balas.pool.cada(b => {
+      if (b.dueno !== "jugador" && b.rosa && Math.hypot(b.x - this.x, b.y - this.y) < 70) {
+        b.activo = false;
+        this.parry(juego);
+      }
+    });
+    juego.particulas.estallido(this.x + this.direccion * 46, this.y - 8, "#fff6dd", 8, 160);
+    juego.audio.sfx("melee");
   }
 
   disparar(juego) {
@@ -260,20 +322,27 @@ export class Jugador {
       }
     }
     g.restore();
-    // Indicador de punteria - al final, sobre todo lo demas
+  }
+
+  dibujarPunteria(g) {
+    // Se llama en coordenadas de pantalla, despues del restore de camara.
+    const px = this.x - (window.juegoPorcelana?.camara?.x || 0);
+    const py = this.y - (window.juegoPorcelana?.camara?.y || 0);
     g.save();
     g.setLineDash([]);
     g.lineDashOffset = 0;
-    g.strokeStyle = "#f5d66c";
-    g.lineWidth = 2;
-    g.globalAlpha = 0.55;
-    g.setLineDash([8, 8]);
     g.beginPath();
-    g.moveTo(this.x, this.y - 10);
-    g.lineTo(this.x + this.aimX * 48, this.y - 10 + this.aimY * 48);
+    g.setLineDash([7, 7]);
+    g.strokeStyle = "#f5d66c";
+    g.lineWidth = 1.5;
+    g.globalAlpha = 0.45;
+    g.beginPath();
+    g.moveTo(px, py - 10);
+    g.lineTo(px + this.aimX * 44, py - 10 + this.aimY * 44);
     g.stroke();
     g.setLineDash([]);
     g.lineDashOffset = 0;
+    g.globalAlpha = 1;
     g.restore();
   }
 }
