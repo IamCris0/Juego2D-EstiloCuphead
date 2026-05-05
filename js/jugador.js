@@ -5,7 +5,10 @@ import { sprites } from "../sprites/sprites.js";
 export const PERSONAJES = {
   tacita: { nombre: "TACITA", descripcion: "Balanceada", hp: 3, saltos: 2, cadencia: 0.115, bala: 650, dash: 720, color: "#f3e1bd" },
   platon: { nombre: "PLATON", descripcion: "Tanque", hp: 4, saltos: 2, cadencia: 0.16, bala: 590, dash: 840, color: "#d8e6d0" },
-  tetito: { nombre: "TETITO", descripcion: "Agil", hp: 2, saltos: 3, cadencia: 0.095, bala: 760, dash: 690, color: "#f0c2df" }
+  tetito: { nombre: "TETITO", descripcion: "Agil", hp: 2, saltos: 3, cadencia: 0.095, bala: 760, dash: 690, color: "#f0c2df" },
+  jarron: { nombre: "JARRON", descripcion: "Mago", hp: 2, saltos: 2, cadencia: 0.18, bala: 580, dash: 640, color: "#8b6cc8", especial: "magia" },
+  termo: { nombre: "TERMO", descripcion: "Berserker", hp: 5, saltos: 1, cadencia: 0.22, bala: 520, dash: 880, color: "#c86c3a", especial: "furia" },
+  taza_chica: { nombre: "TACITA JR", descripcion: "Veloz", hp: 2, saltos: 3, cadencia: 0.07, bala: 820, dash: 750, color: "#6cb8c8", especial: "rapido" }
 };
 
 export class Jugador {
@@ -29,9 +32,10 @@ export class Jugador {
       saltosMax: p.saltos, saltos: 0, enSuelo: false, inv: 0,
       dash: 0, dashCd: 0, disparoCd: 0, estado: "idle", aereo: false,
       slide: 0, slideCd: 0, melee: 0, meleeCd: 0, dashesAire: 0, dashAzul: 0,
+      autoRunCd: 0,
       super: mejoras.super * 12, parries: 0, golpes: 0, disparos: 0, aciertos: 0,
       aimX: 1, aimY: 0, muerto: false, victoria: false, fantasmas: [],
-      muerteRot: 0, sombrero: 0, aura: 0, escudos: mejoras.escudo || 0
+      muerteRot: 0, sombrero: 0, aura: 0, escudos: mejoras.escudo || 0, polvoCd: 0
     });
   }
 
@@ -63,6 +67,7 @@ export class Jugador {
 
   morir(juego) {
     this.muerto = true;
+    juego.statsActualizar?.("totalMuertes", 1);
     this.estado = "muerte";
     juego.vidas--;
     juego.audio.sfx("muerte");
@@ -77,6 +82,7 @@ export class Jugador {
     this.estado = "parry";
     this.vy = this.aereo ? -130 : -430;
     this.parries++;
+    juego.statsActualizar?.("totalParries", 1);
     this.super = clamp(this.super + 25, 0, 100);
     juego.sumarPuntos(250);
     juego.particulas.estallido(this.x, this.y, "#ff8abf", 18, 230);
@@ -93,6 +99,8 @@ export class Jugador {
     this.dashCd = Math.max(0, this.dashCd - dt);
     this.slideCd = Math.max(0, this.slideCd - dt);
     this.meleeCd = Math.max(0, this.meleeCd - dt);
+    this.polvoCd -= dt;
+    this.autoRunCd = Math.max(0, this.autoRunCd - dt);
     this.dashAzul = Math.max(0, this.dashAzul - dt);
     if (this.slide > 0) this.slide -= dt;
     if (this.melee > 0) this.melee -= dt;
@@ -112,6 +120,14 @@ export class Jugador {
     if (input.consumir("KeyQ") && this.meleeCd <= 0) this.iniciarMelee(juego);
     if (this.aereo) this.actualizarAereo(dt, mx, my, juego);
     else this.actualizarPlataforma(dt, mx, juego);
+    if (this.enSuelo && this.estado === "correr" && Math.abs(this.vx) > 200 && this.polvoCd <= 0) {
+      juego.particulas.estallido(this.x - this.direccion * 18, this.y + 28, "#d9bd77", 3, 80);
+      this.polvoCd = 0.2;
+    }
+    if (this.slide > 0 && this.polvoCd <= 0) {
+      juego.particulas.estallido(this.x - this.direccion * 22, this.y + 25, "#d9bd77", 4, 90);
+      this.polvoCd = 0.08;
+    }
 
     if (input.dash()) {
       if (my > 0.45 && this.enSuelo && this.slideCd <= 0) this.iniciarDeslizar(juego);
@@ -120,8 +136,8 @@ export class Jugador {
     const dashPrevio = this.dash;
     if (this.dash > 0) {
       this.dash -= dt;
-      this.fantasmas.push({ x: this.x, y: this.y, dir: this.direccion, vida: 0.22 });
-      while (this.fantasmas.length > 5) this.fantasmas.shift();
+      this.fantasmas.push({ x: this.x, y: this.y, dir: this.direccion, vida: this.dashAzul > 0 ? 0.35 : 0.22, azul: this.dashAzul > 0 });
+      while (this.fantasmas.length > (this.dashAzul > 0 ? 8 : 5)) this.fantasmas.shift();
     }
     if (dashPrevio > 0 && this.dash <= 0 && (this.guardado?.mejoras?.dashCargado || 0) > 0) {
       juego.particulas.estallido(this.x, this.y, "#ffef9b", 24, 280);
@@ -130,13 +146,17 @@ export class Jugador {
     this.fantasmas = this.fantasmas.filter(f => f.vida > 0);
 
     if ((input.disparoMantenido() || input.disparoPulso()) && this.disparoCd <= 0) this.disparar(juego);
+    if ((PERSONAJES[this.tipo].especial === "rapido") && this.estado === "correr" && this.autoRunCd <= 0) {
+      this.disparar(juego, true);
+      this.autoRunCd = 0.4;
+    }
     if (input.super() && this.super >= 100) this.superAtaque(juego);
   }
 
   actualizarPlataforma(dt, mx, juego) {
     const p = PERSONAJES[this.tipo];
     const mejoras = this.guardado?.mejoras || { velocidad: 0 };
-    const velocidad = 250 + mejoras.velocidad * 28;
+    const velocidad = (250 + mejoras.velocidad * 28) * (juego.powerupsActivos?.velocidad ? 1.6 : 1);
     this.vx = this.dash > 0 || this.slide > 0 ? this.vx : lerp(this.vx, mx * velocidad, 0.18);
     const salto = input.salto();
     if (salto && this.tipo === "tetito" && !this.enSuelo && (this.x <= 45 || this.x >= juego.nivel.ancho - 45)) {
@@ -241,17 +261,19 @@ export class Jugador {
     juego.audio.sfx("melee");
   }
 
-  disparar(juego) {
+  disparar(juego, automatico = false) {
     const p = PERSONAJES[this.tipo];
     const mejoras = this.guardado?.mejoras || { cadencia: 0 };
-    this.disparoCd = Math.max(0.055, p.cadencia - mejoras.cadencia * 0.012);
+    if (!automatico) this.disparoCd = Math.max(0.055, p.cadencia - mejoras.cadencia * 0.012);
     this.disparos++;
+    juego.statsActualizar?.("totalDisparos", 1);
     this.estado = "disparar";
-    const doble = (mejoras.doble || 0) > 0;
+    const doble = (mejoras.doble || 0) > 0 || !!juego.powerupsActivos?.doble_bala;
     const offsets = doble ? [-8, 8] : [0];
+    const furia = p.especial === "furia" ? 1 + (1 - this.hp / this.maxHp) * 1.5 : 1;
     for (const off of offsets) {
       juego.balas.crear("jugador", this.x + this.aimX * 32, this.y + this.aimY * 22 + off, this.aimX * p.bala, this.aimY * p.bala, {
-        color: "#f5d66c", w: 16, h: 10, dano: 5, vida: 1.8, rebotes: mejoras.rebote || 0
+        color: p.especial === "magia" ? "#b99cff" : "#f5d66c", w: 16, h: 10, dano: 5 * furia, vida: 1.8, rebotes: mejoras.rebote || 0, atraviesa: p.especial === "magia"
       });
     }
     juego.audio.sfx("disparo");
@@ -274,16 +296,28 @@ export class Jugador {
   dibujar(g, t) {
     g.setLineDash([]);
     g.lineDashOffset = 0;
+    g.beginPath();
     for (const f of this.fantasmas) {
       g.save();
+      g.setLineDash([]);
+      g.lineDashOffset = 0;
+      g.beginPath();
       g.globalAlpha = f.vida / 0.5;
       g.translate(f.x, f.y);
       g.scale(f.dir, 1);
       g.drawImage(sprites.jugador[this.tipo].idle[0], -43, -56, 86, 98);
+      if (f.azul) {
+        g.globalCompositeOperation = "source-atop";
+        g.fillStyle = "rgba(108,166,217,0.55)";
+        g.fillRect(-45, -60, 90, 110);
+      }
       g.restore();
     }
     if (this.inv > 0 && Math.floor(t * 24) % 2 === 0) return;
     g.save();
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
+    g.beginPath();
     g.translate(this.x, this.y);
     if (this.estado === "muerte") g.rotate(this.muerteRot);
     g.scale(this.direccion, 1);
@@ -311,6 +345,10 @@ export class Jugador {
       const lista = sprites.jugador[this.tipo][estado];
       const frame = Math.floor(t * (estado === "correr" ? 14 : 8)) % lista.length;
       g.drawImage(lista[frame], -43, -56, 86, 98);
+      if (estado === "idle" && (t % 3.5) < 0.15) {
+        g.fillStyle = "#1a100c";
+        g.fillRect(-16, -31, 32, 3);
+      }
       if (this.sombrero > 0) {
         g.strokeStyle = "#1a100c";
         g.fillStyle = "#b72f2a";
@@ -321,28 +359,18 @@ export class Jugador {
         g.stroke();
       }
     }
-    g.restore();
-  }
-
-  dibujarPunteria(g) {
-    // Se llama en coordenadas de pantalla, despues del restore de camara.
-    const px = this.x - (window.juegoPorcelana?.camara?.x || 0);
-    const py = this.y - (window.juegoPorcelana?.camara?.y || 0);
-    g.save();
-    g.setLineDash([]);
-    g.lineDashOffset = 0;
-    g.beginPath();
-    g.setLineDash([7, 7]);
-    g.strokeStyle = "#f5d66c";
-    g.lineWidth = 1.5;
-    g.globalAlpha = 0.45;
-    g.beginPath();
-    g.moveTo(px, py - 10);
-    g.lineTo(px + this.aimX * 44, py - 10 + this.aimY * 44);
-    g.stroke();
-    g.setLineDash([]);
-    g.lineDashOffset = 0;
-    g.globalAlpha = 1;
+    if (this.slide > 0) {
+      g.globalAlpha = 0.35;
+      g.fillStyle = "#f5d66c";
+      g.beginPath(); g.ellipse(-38, 18, 38, 10, 0, 0, TAU); g.fill();
+    }
+    if (this.melee > 0) {
+      g.globalAlpha = Math.min(1, this.melee / 0.25);
+      g.strokeStyle = "#fff6dd"; g.lineWidth = 8;
+      g.beginPath();
+      g.arc(this.direccion * 20, -5, 45, -Math.PI / 4, Math.PI / 4);
+      g.stroke();
+    }
     g.restore();
   }
 }

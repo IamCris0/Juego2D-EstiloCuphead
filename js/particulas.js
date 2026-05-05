@@ -35,12 +35,17 @@ export class SistemaParticulas {
     g.save();
     g.setLineDash([]);
     g.lineDashOffset = 0;
+    g.beginPath();
     this.pool.cada(p => {
       g.save();
+      g.setLineDash([]);
+      g.lineDashOffset = 0;
+      g.beginPath();
       g.globalAlpha = clamp(p.vida / p.max, 0, 1);
       g.translate(p.x, p.y);
       g.rotate(p.rot);
       tinta(g, p.color, "#1a100c", 2);
+      g.beginPath();
       if (p.pieza) g.roundRect(-p.r, -p.r * 0.65, p.r * 2, p.r * 1.3, 3);
       else g.arc(0, 0, p.r, 0, TAU);
       g.fill();

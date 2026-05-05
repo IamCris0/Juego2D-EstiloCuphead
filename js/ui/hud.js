@@ -16,6 +16,24 @@ export function dibujarHud(g, juego) {
     g.stroke();
   }
   medidor(g, 155, 18, 145, 18, juego.jugador.super / 100, "#4aa39a", "SUPER");
+  let px = 155;
+  for (const [tipo, tiempo] of Object.entries(juego.powerupsActivos || {})) {
+    const def = juego.tiposPowerup?.[tipo] || { color: "#f1dfb8", icono: "?" };
+    g.fillStyle = def.color;
+    g.strokeStyle = "#1a100c";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(px + 10, 49, 9, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = "#1a100c";
+    g.font = "bold 10px Georgia";
+    g.textAlign = "center";
+    g.fillText(def.icono, px + 10, 52);
+    g.fillStyle = def.color;
+    g.fillRect(px, 57, Math.max(0, tiempo) * 3, 3);
+    px += 34;
+  }
   texto(g, `PUNTOS ${juego.puntos}`, 325, 35, 21, "left");
   texto(g, `x${juego.combo.toFixed(1)}`, 495, 35, 21, "left");
   texto(g, `TIEMPO ${Math.floor(juego.tiempo)}`, 590, 35, 21, "left");

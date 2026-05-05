@@ -28,6 +28,7 @@ export function crearSubNivel(id, subId) {
     plataformas: [],
     enemigos: [],
     monedas: [],
+    powerups: [],
     jefe: null,
     submarino: mundo.modo === "submarino",
     victoriaFinal: false
@@ -45,7 +46,29 @@ export function crearSubNivel(id, subId) {
   return nivel;
 }
 
+export function crearBonus(mundoId) {
+  const nivel = {
+    id: mundoId,
+    subId: 99,
+    nombre: "Bonus Stage",
+    nombreSub: "Lluvia de monedas",
+    modo: "bonus",
+    ancho: 960,
+    tiempoLimite: 20,
+    plataformas: [{ x: 0, y: 620, w: 960, h: 120 }],
+    enemigos: [],
+    monedas: [],
+    powerups: [],
+    jefe: null,
+    submarino: false,
+    bonus: true
+  };
+  for (let i = 0; i < 30; i++) nivel.monedas.push({ x: 60 + (i * 73) % 840, y: -40 - i * 45, w: 22, h: 22, tomada: false, cae: true });
+  return nivel;
+}
+
 function crearRunGun(nivel, id, subId) {
+  const dif = subId * 0.5 + (id - 1) * 0.3;
   nivel.plataformas.push({ x: 0, y: 620, w: nivel.ancho + 120, h: 120 });
   const alturas = id === 1 ? [500, 455, 500, 450, 500, 430] : [520, 470, 420, 500, 455, 410];
   alturas.forEach((y, i) => nivel.plataformas.push({ x: 620 + i * 520, y, w: 190 + (i % 2) * 60, h: 28 }));
@@ -55,17 +78,33 @@ function crearRunGun(nivel, id, subId) {
   for (let i = 0; i < total; i++) {
     const x = 360 + i * paso;
     const y = tipos[i % tipos.length] === "pajaro" || tipos[i % tipos.length] === "naipe" ? rand(260, 460) : 590;
-    nivel.enemigos.push(new Enemigo(tipos[i % tipos.length], x, y, [x - 200, x + 200]));
+    const e = new Enemigo(tipos[i % tipos.length], x, y, [x - 200, x + 200]);
+    ajustarDificultad(e, dif);
+    nivel.enemigos.push(e);
   }
   if (subId === 2 && id === 1) nivel.enemigos.push(new Jefe("cocodrilo", 2250, 545));
   const monedas = subId === 1 ? 10 : 24;
   for (let i = 0; i < monedas; i++) nivel.monedas.push({ x: 330 + i * 180, y: 430 + Math.sin(i) * 80, w: 22, h: 22, tomada: false });
+  const tiposPower = ["vida", "velocidad", "invencible", "doble_bala", "escudo", "super_max"];
+  for (let i = 0; i < 4; i++) nivel.powerups.push({ x: 800 + i * 900, y: 440, tipo: tiposPower[(i + id + subId) % tiposPower.length] });
 }
 
 function crearAereo(nivel, id, subId) {
+  const dif = subId * 0.5 + (id - 1) * 0.3;
   const tipos = id === 2 ? ["avioneta", "globo", "nube", "murcielago"] : ["pez", "medusa", "cangrejo", "anguila"];
   const total = subId === 1 ? 10 : 20;
-  for (let i = 0; i < total; i++) nivel.enemigos.push(new Enemigo(tipos[i % 4], 520 + i * (subId === 1 ? 140 : 190), rand(100, 600)));
+  for (let i = 0; i < total; i++) {
+    const e = new Enemigo(tipos[i % 4], 520 + i * (subId === 1 ? 140 : 190), rand(100, 600));
+    ajustarDificultad(e, dif);
+    nivel.enemigos.push(e);
+  }
   const monedas = subId === 1 ? 10 : 26;
   for (let i = 0; i < monedas; i++) nivel.monedas.push({ x: 420 + i * 190, y: rand(100, 590), w: 22, h: 22, tomada: false });
+}
+
+function ajustarDificultad(e, dif) {
+  e.hp *= 1 + dif * 0.4;
+  e.maxHp = e.hp;
+  e.velocidad *= 1 + dif * 0.2;
+  e.cooldown *= Math.max(0.35, 1 - dif * 0.15);
 }

@@ -54,6 +54,8 @@ export class Enemigo {
     this.aturdido = 0;
     this.flash = 0;
     this.carga = 0;
+    this.knock = 0;
+    this.muerteAnim = 0;
     this.patrullaVel = rand(0.7, 1.8);
     this.patrullaAmp = rand(35, 90);
   }
@@ -65,6 +67,7 @@ export class Enemigo {
   recibir(dano, juego) {
     this.hp -= dano;
     this.flash = 0.12;
+    this.knock = 0.12;
     this.ventanaGolpe = 0.8;
     this.golpesRapidos++;
     if (this.golpesRapidos >= 3) {
@@ -76,9 +79,10 @@ export class Enemigo {
   }
 
   morir(juego) {
-    if (!this.activo) return;
-    this.activo = false;
+    if (!this.activo || this.muerteAnim > 0) return;
+    this.muerteAnim = 0.4;
     juego.logros.kills = (juego.logros.kills || 0) + 1;
+    juego.statsActualizar?.("totalKills", 1);
     juego.guardarLogros?.();
     if (juego.logros.kills >= 50) juego.logro("exterminador");
     juego.sumarPuntos(180);
@@ -87,9 +91,15 @@ export class Enemigo {
   }
 
   actualizar(dt, juego) {
+    if (this.muerteAnim > 0) {
+      this.muerteAnim -= dt;
+      if (this.muerteAnim <= 0) this.activo = false;
+      return;
+    }
     if (!this.activo) return;
     this.t += dt;
     this.flash = Math.max(0, this.flash - dt);
+    this.knock = Math.max(0, this.knock - dt);
     this.ventanaGolpe = Math.max(0, this.ventanaGolpe - dt);
     if (this.ventanaGolpe <= 0) this.golpesRapidos = 0;
     actualizarIA(this, juego, dt);
@@ -138,12 +148,20 @@ export class Enemigo {
   }
 
   dibujar(g, t) {
-    if (!this.activo) return;
+    if (!this.activo && this.muerteAnim <= 0) return;
     g.save();
-    g.translate(this.x, this.y);
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
+    g.beginPath();
+    g.translate(this.x - this.direccion * this.knock * 40, this.y);
     g.scale(this.direccion, 1);
-    const carga = this.carga > 0 ? 1 + Math.sin(t * 28) * 0.12 : 1;
+    const carga = this.carga > 0 ? 1 + Math.sin(t * 42) * 0.15 : 1;
     const squash = this.aturdido > 0 ? 0.82 + Math.sin(t * 30) * 0.08 : 1 + Math.sin(this.t * 10) * 0.035;
+    if (this.muerteAnim > 0) {
+      const p = this.muerteAnim / 0.4;
+      g.rotate((1 - p) * TAU * 1.5);
+      g.scale(p, p);
+    }
     g.rotate((this.gira || this.rueda ? this.t * 3 : Math.sin(this.t * 8) * 0.04));
     g.scale(carga / squash, squash);
     const img = sprites.enemigos?.[this.tipo];

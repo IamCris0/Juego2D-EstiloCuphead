@@ -13,7 +13,7 @@ export class SistemaBalas {
       w: opts.w || 12, h: opts.h || 12,
       dano: opts.dano || 1, rosa: !!opts.rosa, teledirigida: opts.teledirigida || 0,
       vida: opts.vida || 3, color: opts.color || (dueno === "jugador" ? "#f4e189" : "#d24a43"),
-      giro: 0, tipo: opts.tipo || "bala", rebotes: opts.rebotes || 0
+      giro: 0, tipo: opts.tipo || "bala", rebotes: opts.rebotes || 0, atraviesa: !!opts.atraviesa
     });
     return b;
   }
@@ -42,10 +42,10 @@ export class SistemaBalas {
         for (const e of juego.nivel.enemigos) {
           if (e.activo && aabb(br, e.rect())) {
             e.recibir(b.dano, juego);
-            b.activo = false;
+            if (!b.atraviesa) b.activo = false;
             juego.jugador.aciertos++;
             juego.jugador.super = Math.min(100, juego.jugador.super + 1.7 + (juego.guardado.mejoraSuper || 0));
-            break;
+            if (!b.atraviesa) break;
           }
         }
         const jefe = juego.nivel.jefe;
@@ -71,11 +71,16 @@ export class SistemaBalas {
     g.save();
     g.setLineDash([]);
     g.lineDashOffset = 0;
+    g.beginPath();
     this.pool.cada(b => {
       g.save();
+      g.setLineDash([]);
+      g.lineDashOffset = 0;
+      g.beginPath();
       g.translate(b.x, b.y);
       g.rotate(Math.atan2(b.vy, b.vx) + Math.sin(b.giro) * 0.2);
       tinta(g, b.color, "#1a100c", 3);
+      g.beginPath();
       if (b.tipo === "rayo") g.roundRect(-b.w / 2, -b.h / 2, b.w, b.h, 3);
       else g.ellipse(0, 0, b.w / 2, b.h / 2, 0, 0, TAU);
       g.fill();

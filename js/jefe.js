@@ -67,6 +67,13 @@ export class Jefe {
     if (aabb(this.rect(), juego.jugador.rect())) juego.jugador.herir(juego);
   }
 
+  aplicarReintento(juego) {
+    const n = juego.reintentos?.[juego.mundo] || 0;
+    const mult = n <= 0 ? 1 : n === 1 ? 1.1 : 1.2;
+    this.hp *= mult;
+    this.maxHp = this.hp;
+  }
+
   atacar(juego, castigo) {
     const f = this.fase;
     if (this.tipo === "arbol") {
@@ -175,6 +182,9 @@ export class Jefe {
   dibujar(g, t) {
     if (!this.activo) return;
     g.save();
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
+    g.beginPath();
     g.translate(this.x, this.y);
     const pulso = this.transicion > 0 ? 1 + Math.sin(t * 28) * 0.18 : 1 + Math.sin(t * 7) * 0.035;
     g.rotate(Math.sin(t * 4) * 0.05);

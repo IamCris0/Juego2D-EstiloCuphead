@@ -21,8 +21,14 @@ export function dibujarIngresoNombre(g, juego) {
 export function dibujarLeaderboard(g, juego) {
   fondoMenu(g, juego.t);
   texto(g, "TABLA DE CAMPEONES", 480, 72, 52, "center", "#ffef9b");
-  texto(g, juego.pestanaLB === 0 ? "[ HOY ]    GLOBAL" : "HOY    [ GLOBAL ]", 480, 118, 24, "center", "#d8a342");
+  const tabs = ["HOY", "GLOBAL", "STATS"].map((t, i) => juego.pestanaLB === i ? `[ ${t} ]` : t).join("    ");
+  texto(g, tabs, 480, 118, 24, "center", "#d8a342");
   texto(g, juego.lbOnline?.disponible ? "● ONLINE" : "● LOCAL", 835, 80, 18, "center", juego.lbOnline?.disponible ? "#7ac16b" : "#8e8576");
+  if (juego.pestanaLB === 2) {
+    dibujarStats(g, juego);
+    texto(g, "ENTER: MAPA    IZQ/DER: PESTANAS", 480, 625, 24);
+    return;
+  }
   const tabla = juego.pestanaLB === 0 ? juego.tablaHoy : juego.tablaGlobal;
   for (let i = 0; i < 10; i++) {
     const e = tabla[i];
@@ -44,4 +50,23 @@ export function dibujarLeaderboard(g, juego) {
   }
   if (juego.confirmarResetTabla) texto(g, "PULSA R DE NUEVO PARA BORRAR LA TABLA", 480, 625, 24, "center", "#c74334");
   else texto(g, "ENTER: MAPA    R: RESETEAR TABLA", 480, 625, 24);
+}
+
+function dibujarStats(g, juego) {
+  const datos = [
+    ["Disparos", juego.stats.totalDisparos],
+    ["Bajas", juego.stats.totalKills],
+    ["Muertes", juego.stats.totalMuertes],
+    ["Parries", juego.stats.totalParries],
+    ["Tiempo", Math.floor(juego.stats.tiempoTotal)],
+    ["Mejor combo", juego.stats.mejorCombo.toFixed(1)],
+    ["Powerups", juego.stats.powerupsRecogidos]
+  ];
+  datos.forEach((d, i) => {
+    const y = 180 + i * 52;
+    texto(g, d[0], 260, y, 23, "left", "#f4e3bd");
+    g.fillStyle = "#3b2921"; g.fillRect(430, y - 10, 250, 18);
+    g.fillStyle = "#d8a342"; g.fillRect(430, y - 10, Math.min(250, Number(d[1]) * 3), 18);
+    texto(g, `${d[1]}`, 710, y, 22, "left", "#ffef9b");
+  });
 }

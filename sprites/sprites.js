@@ -41,7 +41,10 @@ export function construirSprites() {
   const colores = {
     tacita: ["#f3e1bd", "#b72f2a"],
     platon: ["#d8e6d0", "#2f7e75"],
-    tetito: ["#f0c2df", "#7f4ca5"]
+    tetito: ["#f0c2df", "#7f4ca5"],
+    jarron: ["#d7c6ff", "#8b6cc8"],
+    termo: ["#e6b08d", "#c86c3a"],
+    taza_chica: ["#c4edf3", "#6cb8c8"]
   };
 
   sprites.jugador = {};
@@ -56,7 +59,17 @@ export function construirSprites() {
         g.translate(43, 48 + bob);
         g.scale(1 / estirar, estirar);
         tinta(g, paleta[0]);
-        if (nombre === "platon") {
+        if (nombre === "jarron") {
+          g.beginPath(); g.ellipse(0, -2, 18, 34, 0, 0, TAU); g.fill(); g.stroke();
+          g.beginPath(); g.ellipse(0, -35, 16, 8, 0, 0, TAU); g.stroke();
+        } else if (nombre === "termo") {
+          g.beginPath(); g.roundRect(-19, -32, 38, 62, 10); g.fill(); g.stroke();
+          g.beginPath(); g.roundRect(-14, -45, 28, 13, 5); g.fill(); g.stroke();
+        } else if (nombre === "taza_chica") {
+          g.beginPath(); g.ellipse(0, 4, 19, 22, 0, 0, TAU); g.fill(); g.stroke();
+          g.beginPath(); g.arc(19, 4, 8, -1.2, 1.2); g.stroke();
+          g.strokeStyle = paleta[1]; g.lineWidth = 5; g.beginPath(); g.moveTo(-10, -30); g.quadraticCurveTo(-28, -42, -32, -20); g.stroke();
+        } else if (nombre === "platon") {
           g.beginPath(); g.ellipse(0, 0, 30, 18, 0, 0, TAU); g.fill(); g.stroke();
           g.beginPath(); g.ellipse(0, 0, 19, 10, 0, 0, TAU); g.stroke();
         } else if (nombre === "tetito") {

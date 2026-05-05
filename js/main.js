@@ -4,9 +4,11 @@ import { guardado, persistir, registrarGrado, subnivelDesbloqueado } from "./gua
 import { Camara } from "./camara.js";
 import { SistemaParticulas } from "./particulas.js";
 import { SistemaBalas } from "./bala.js";
+import { SistemaPowerups, TIPOS_POWERUP } from "./powerup.js";
+import { stats, actualizar as actualizarStats } from "./estadisticas.js";
 import { Jugador } from "./jugador.js";
 import { Enemigo } from "./enemigo.js";
-import { crearSubNivel, MUNDOS } from "./nivel.js";
+import { crearBonus, crearSubNivel, MUNDOS } from "./nivel.js";
 import { agregarPuntajeConFallback, limpiarLeaderboard, obtenerLeaderboard } from "./leaderboard.js";
 import { leaderboardOnline } from "./leaderboard_online.js";
 import { construirSprites } from "../sprites/sprites.js";
@@ -36,6 +38,7 @@ const juego = {
   input,
   camara: new Camara(),
   particulas: new SistemaParticulas(),
+  powerups: new SistemaPowerups(),
   balas: new SistemaBalas(),
   jugador: new Jugador(guardado.personaje),
   nivel: null,
@@ -50,7 +53,7 @@ const juego = {
   comboTiempo: 0,
   tiempo: 0,
   menu: 0,
-  selector: ["tacita", "platon", "tetito"].indexOf(guardado.personaje),
+  selector: ["tacita", "platon", "tetito", "jarron", "termo", "taza_chica"].indexOf(guardado.personaje),
   resultado: null,
   cortina: 0,
   oscuridad: 0,
@@ -73,6 +76,12 @@ const juego = {
   siguienteEstadoCinematica: "titulo",
   cargaProgreso: 0,
   spritesListos: false,
+  powerupsActivos: {},
+  tiposPowerup: TIPOS_POWERUP,
+  stats,
+  reintentos: {},
+  bonusPendiente: false,
+  puntosBonusInicio: 0,
 
   iniciar() {
     requestAnimationFrame(this.bucle.bind(this));
@@ -126,6 +135,7 @@ const juego = {
     this.mundo = id;
     this.subNivel = subId;
     this.nivel = crearSubNivel(id, subId);
+    this.nivel.jefe?.aplicarReintento?.(this);
     audio.cambiarMundo(id);
     this.jugador.configurar(guardado.personaje, guardado);
     this.jugador.aereo = ["aereo", "submarino"].includes(this.nivel.modo);
@@ -138,6 +148,14 @@ const juego = {
     this.invertido = 0;
     this.balas.limpiar();
     this.particulas.limpiar();
+    this.powerups.limpiar();
+    this.powerupsActivos = {};
+    for (const p of this.nivel.powerups || []) this.powerups.crear(p.x, p.y, p.tipo);
+    if (this.nivel.modo === "jefe" || subId === 3) {
+      this.powerups.crear(210, 520, "vida");
+      this.powerups.crear(480, 500, "super_max");
+      this.powerups.crear(740, 520, "vida");
+    }
     if (subId === 3 && this.nivel.jefe) {
       this.cinematica = crearIntroJefe(this.nivel.jefe);
       this.siguienteEstadoCinematica = "jugar";
@@ -148,6 +166,7 @@ const juego = {
   },
 
   reiniciarNivel() {
+    this.reintentos[this.mundo] = (this.reintentos[this.mundo] || 0) + 1;
     this.iniciarNivel(this.mundo, this.subNivel);
   },
 
@@ -164,6 +183,11 @@ const juego = {
       this.extraVida = true;
     }
     if (this.combo >= 5) this.logro("comboMaestro");
+    this.statsActualizar("mejorCombo", this.combo);
+  },
+
+  statsActualizar(campo, valor) {
+    actualizarStats(campo, valor);
   },
 
   logro(id) {
@@ -183,6 +207,11 @@ const juego = {
     guardado.monedas = this.monedas;
     guardado.record = Math.max(guardado.record, this.puntos);
     this.resultado = this.calcularGrado();
+    if (this.subNivel === 2 && ["A", "S"].includes(this.resultado.grado) && !this.bonusPendiente) {
+      this.bonusPendiente = true;
+      this.iniciarBonus();
+      return;
+    }
     if (this.jugador.golpes === 0) this.logro("sinRasguino");
     if (this.nivel.monedas.every(c => c.tomada)) this.logro("coleccionista");
     if (this.jugador.parries >= 5) this.logro("parryMaestro");
@@ -204,6 +233,20 @@ const juego = {
     } else {
       this.cambiar("resultados");
     }
+  },
+
+  iniciarBonus() {
+    this.nivel = crearBonus(this.mundo);
+    this.jugador.configurar(guardado.personaje, guardado);
+    this.jugador.x = 120;
+    this.jugador.y = 520;
+    this.jugador.aereo = false;
+    this.tiempo = 0;
+    this.puntosBonusInicio = this.puntos;
+    this.balas.limpiar();
+    this.particulas.limpiar();
+    this.powerups.limpiar();
+    this.cambiar("bonus");
   },
 
   calcularGrado() {
@@ -252,9 +295,11 @@ const juego = {
       if (input.consumir("KeyS")) this.cambiar("configuracion");
     } else if (this.estado === "personaje") {
       if (input.izq()) this.selector = Math.max(0, this.selector - 1);
-      if (input.der()) this.selector = Math.min(2, this.selector + 1);
+      if (input.der()) this.selector = Math.min(5, this.selector + 1);
+      if (input.arriba()) this.selector = Math.max(0, this.selector - 3);
+      if (input.abajo()) this.selector = Math.min(5, this.selector + 3);
       if (input.confirmar()) {
-        guardado.personaje = ["tacita", "platon", "tetito"][this.selector];
+        guardado.personaje = ["tacita", "platon", "tetito", "jarron", "termo", "taza_chica"][this.selector];
         persistir();
         this.cambiar("titulo");
       }
@@ -285,7 +330,7 @@ const juego = {
       if (input.der()) audio.fijarVolumen(audio.volumen + 0.05);
       if (input.consumir("KeyM")) audio.alternarSilencio();
       if (input.confirmar() || input.atras()) this.cambiar("titulo");
-    } else if (this.estado === "jugar") {
+    } else if (this.estado === "jugar" || this.estado === "bonus") {
       if (input.pausa()) { this.cambiar("pausa"); return; }
       this.actualizarJuego(dt);
     } else if (this.estado === "pausa") {
@@ -305,8 +350,8 @@ const juego = {
     } else if (this.estado === "ingresar_nombre") {
       this.actualizarIngresoNombre();
     } else if (this.estado === "leaderboard") {
-      if (input.izq()) { this.pestanaLB = 0; this.recargarLeaderboard(); }
-      if (input.der()) { this.pestanaLB = 1; this.recargarLeaderboard(); }
+      if (input.izq()) { this.pestanaLB = Math.max(0, this.pestanaLB - 1); this.recargarLeaderboard(); }
+      if (input.der()) { this.pestanaLB = Math.min(2, this.pestanaLB + 1); this.recargarLeaderboard(); }
       if (input.confirmar()) { this.confirmarResetTabla = false; this.cambiar("mapa"); }
       if (input.consumir("KeyR")) {
         if (this.confirmarResetTabla) {
@@ -383,12 +428,14 @@ const juego = {
 
   actualizarJuego(dt) {
     this.tiempo += dt;
+    this.statsActualizar("tiempoTotal", dt);
     this.comboTiempo -= dt;
     if (this.comboTiempo <= 0) this.combo += (1 - this.combo) * (0.04 / (1 + (guardado.mejoras.combo || 0) * 0.45));
     this.jugador.actualizar(dt, this);
     for (const n of this.notificaciones) n.vida -= dt;
     this.notificaciones = this.notificaciones.filter(n => n.vida > 0);
     if (["aereo", "submarino"].includes(this.nivel.modo)) this.jugador.x += (this.nivel.submarino ? 65 : 92) * dt;
+    this.actualizarPowerupsActivos(dt);
     this.camara.seguir(this.jugador, this.nivel.ancho);
     this.camara.actualizar(dt);
     for (const e of this.nivel.enemigos) e.actualizar?.(dt, this);
@@ -401,7 +448,18 @@ const juego = {
     }
     this.balas.actualizar(dt, this);
     this.particulas.actualizar(dt);
+    this.powerups.actualizar(dt, this);
     this.recogerMonedas();
+    if (this.estado === "bonus") {
+      this.combo = Math.max(this.combo, 3);
+      for (const c of this.nivel.monedas) if (c.cae && !c.tomada) c.y += 120 * dt;
+      if (this.tiempo > 20) {
+        this.notificaciones.push({ texto: `BONUS +${this.puntos - this.puntosBonusInicio}`, vida: 3 });
+        this.bonusPendiente = false;
+        this.cambiar("resultados");
+      }
+      return;
+    }
     if (this.nivel.modo !== "jefe" && this.jugador.x > this.nivel.ancho - 130 && !this.nivel.jefe?.activo) this.completarNivel();
     if (this.tiempo > this.nivel.tiempoLimite) this.jugador.herir(this);
   },
@@ -419,9 +477,20 @@ const juego = {
     }
   },
 
+  actualizarPowerupsActivos(dt) {
+    for (const k of Object.keys(this.powerupsActivos)) {
+      this.powerupsActivos[k] -= dt;
+      if (this.powerupsActivos[k] <= 0) delete this.powerupsActivos[k];
+    }
+    if (this.powerupsActivos.invencible) this.jugador.inv = Math.max(this.jugador.inv, dt + 0.1);
+  },
+
   dibujar(g) {
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
+    g.beginPath();
     g.clearRect(0, 0, ANCHO, ALTO);
-    if (this.estado === "jugar" || this.estado === "pausa") {
+    if (this.estado === "jugar" || this.estado === "pausa" || this.estado === "bonus") {
       g.save();
       if (this.invertido > 0) {
         g.translate(ANCHO, ALTO);
@@ -430,23 +499,27 @@ const juego = {
       this.camara.aplicar(g);
       dibujarNivel(g, this);
       for (const c of this.nivel.monedas) dibujarMoneda(g, c, this.t);
+      this.powerups.dibujar(g, this.t);
       for (const e of this.nivel.enemigos) e.dibujar?.(g, this.t);
       this.nivel.jefe?.dibujar(g, this.t);
       g.setLineDash([]);
       g.lineDashOffset = 0;
+      g.beginPath();
       this.balas.dibujar(g);
       g.setLineDash([]);
       g.lineDashOffset = 0;
+      g.beginPath();
       this.particulas.dibujar(g);
       this.jugador.dibujar(g, this.t);
       g.restore();
       g.setLineDash([]);
       g.lineDashOffset = 0;
-      this.jugador.dibujarPunteria(g);
+      g.beginPath();
       dibujarHud(g, this);
       if (this.camara.lensFlare > 0) dibujarLensFlare(g, this.camara.lensFlare);
       if (this.oscuridad > 0) { g.fillStyle = `rgba(0,0,0,${this.oscuridad})`; g.fillRect(0, 0, ANCHO, ALTO); }
       if (this.estado === "pausa") dibujarPausa(g, this);
+      if (this.estado === "bonus") texto(g, `BONUS ${Math.max(0, Math.ceil(20 - this.tiempo))}`, 480, 170, 64, "center", "#ffef9b");
     } else if (this.estado === "titulo") dibujarTitulo(g, this);
     else if (this.estado === "personaje") dibujarSeleccion(g, this);
     else if (this.estado === "mapa") dibujarMapa(g, this);
@@ -467,6 +540,9 @@ const juego = {
 };
 
 function dibujarNivel(g, juego) {
+  g.setLineDash([]);
+  g.lineDashOffset = 0;
+  g.beginPath();
   const n = juego.nivel;
   const x0 = juego.camara.x;
   const grad = g.createLinearGradient(0, 0, 0, ALTO);
@@ -514,6 +590,9 @@ function dibujarParallax(g, n, x0, t) {
 
 function dibujarSelva(g, x0, t) {
   g.save();
+  g.setLineDash([]);
+  g.lineDashOffset = 0;
+  g.beginPath();
   g.globalAlpha = 0.18;
   g.fillStyle = "#ffe68a";
   for (let i = 0; i < 6; i++) {
@@ -527,6 +606,9 @@ function dibujarSelva(g, x0, t) {
   g.restore();
   for (let capa = 1; capa <= 3; capa++) {
     g.save();
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
+    g.beginPath();
     g.globalAlpha = 0.24 + capa * 0.08;
     for (let i = -2; i < 12; i++) {
       const x = x0 + i * 185 - (x0 * 0.08 * capa) % 185;
@@ -546,6 +628,9 @@ function dibujarSelva(g, x0, t) {
 
 function dibujarCielos(g, x0, t) {
   g.save();
+  g.setLineDash([]);
+  g.lineDashOffset = 0;
+  g.beginPath();
   g.fillStyle = "#ffd17a";
   g.beginPath();
   g.arc(x0 + 820, 105, 72, 0, TAU);
@@ -553,6 +638,9 @@ function dibujarCielos(g, x0, t) {
   g.restore();
   for (let capa = 1; capa <= 3; capa++) {
     g.save();
+    g.setLineDash([]);
+    g.lineDashOffset = 0;
+    g.beginPath();
     g.globalAlpha = 0.24 + capa * 0.12;
     g.fillStyle = capa === 1 ? "#ffe2bd" : "#fff1d4";
     for (let i = -2; i < 11; i++) {
@@ -564,6 +652,9 @@ function dibujarCielos(g, x0, t) {
     g.restore();
   }
   g.save();
+  g.setLineDash([]);
+  g.lineDashOffset = 0;
+  g.beginPath();
   g.strokeStyle = "rgba(255,244,214,0.45)";
   g.lineWidth = 4;
   for (let i = 0; i < 12; i++) {
@@ -576,6 +667,9 @@ function dibujarCielos(g, x0, t) {
 
 function dibujarCasino(g, x0, t) {
   g.save();
+  g.setLineDash([]);
+  g.lineDashOffset = 0;
+  g.beginPath();
   g.fillStyle = "#8b1f2f";
   g.fillRect(x0, 0, 45, 720);
   g.fillRect(x0 + ANCHO - 45, 0, 45, 720);
@@ -600,6 +694,9 @@ function dibujarCasino(g, x0, t) {
 
 function dibujarOceano(g, x0, t) {
   g.save();
+  g.setLineDash([]);
+  g.lineDashOffset = 0;
+  g.beginPath();
   const luz = g.createRadialGradient(x0 + 480, -30, 20, x0 + 480, 20, 650);
   luz.addColorStop(0, "rgba(185,230,255,0.55)");
   luz.addColorStop(1, "rgba(185,230,255,0)");
@@ -628,6 +725,9 @@ function dibujarOceano(g, x0, t) {
 
 function dibujarFabrica(g, x0, t) {
   g.save();
+  g.setLineDash([]);
+  g.lineDashOffset = 0;
+  g.beginPath();
   g.strokeStyle = "#5d5044";
   g.lineWidth = 18;
   for (let i = 0; i < 8; i++) {

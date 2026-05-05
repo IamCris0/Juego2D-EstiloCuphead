@@ -36,17 +36,22 @@ export function dibujarTitulo(g, juego) {
 export function dibujarSeleccion(g, juego) {
   fondoMenu(g, juego.t);
   texto(g, "ELIGE TU HEROE", 480, 90, 56);
-  const ids = ["tacita", "platon", "tetito"];
+  const ids = ["tacita", "platon", "tetito", "jarron", "termo", "taza_chica"];
+  const nombres = ["TACITA", "PLATON", "TETITO", "JARRON", "TERMO", "TACITA JR"];
+  const desc = ["Balanceada", "+1 vida, dash largo", "Triple salto, agil", "Balas magicas", "Furia con poco HP", "Corre y dispara"];
   ids.forEach((id, i) => {
-    const x = 240 + i * 240;
+    const col = i % 3;
+    const fila = Math.floor(i / 3);
+    const x = 240 + col * 240;
+    const yBase = 260 + fila * 205;
     const activo = juego.selector === i;
     g.save();
-    g.translate(x, 300 + Math.sin(juego.t * 4 + i) * 8);
+    g.translate(x, yBase + Math.sin(juego.t * 4 + i) * 8);
     g.globalAlpha = activo ? 1 : 0.65;
-    g.drawImage(sprites.jugador[id].idle[Math.floor(juego.t * 7) % 3], -65, -85, 130, 148);
+    g.drawImage(sprites.jugador[id].idle[Math.floor(juego.t * 7) % 3], -52, -68, 104, 118);
     g.restore();
-    texto(g, ["TACITA", "PLATON", "TETITO"][i], x, 445, 32, "center", activo ? "#ffef9b" : "#f1dfb8");
-    texto(g, ["Balanceada", "+1 vida, dash largo", "Triple salto, agil"][i], x, 485, 19);
+    texto(g, nombres[i], x, yBase + 78, 25, "center", activo ? "#ffef9b" : "#f1dfb8");
+    texto(g, desc[i], x, yBase + 108, 17);
   });
-  texto(g, "FLECHAS: CAMBIAR    ENTER: CONFIRMAR", 480, 640, 24);
+  texto(g, "FLECHAS: CAMBIAR    ENTER: CONFIRMAR", 480, 665, 24);
 }
