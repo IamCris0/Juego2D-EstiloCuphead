@@ -1,14 +1,14 @@
 import { input } from "./input.js";
-import { TAU, aabb, clamp, lerp } from "./util.js";
+import { ANCHO, TAU, aabb, clamp, lerp } from "./util.js";
 import { sprites } from "../sprites/sprites.js";
 
 export const PERSONAJES = {
-  tacita: { nombre: "TACITA", descripcion: "Balanceada", hp: 3, saltos: 2, cadencia: 0.115, bala: 650, dash: 720, color: "#f3e1bd" },
-  platon: { nombre: "PLATON", descripcion: "Tanque", hp: 4, saltos: 2, cadencia: 0.16, bala: 590, dash: 840, color: "#d8e6d0" },
-  tetito: { nombre: "TETITO", descripcion: "Agil", hp: 2, saltos: 3, cadencia: 0.095, bala: 760, dash: 690, color: "#f0c2df" },
-  jarron: { nombre: "JARRON", descripcion: "Mago", hp: 2, saltos: 2, cadencia: 0.18, bala: 580, dash: 640, color: "#8b6cc8", especial: "magia" },
-  termo: { nombre: "TERMO", descripcion: "Berserker", hp: 5, saltos: 1, cadencia: 0.22, bala: 520, dash: 880, color: "#c86c3a", especial: "furia" },
-  taza_chica: { nombre: "TACITA JR", descripcion: "Veloz", hp: 2, saltos: 3, cadencia: 0.07, bala: 820, dash: 750, color: "#6cb8c8", especial: "rapido" }
+  tacita: { nombre: "TACITA", descripcion: "Balanceada", arma: "Guisante recto", hp: 3, saltos: 2, cadencia: 0.115, bala: 650, dano: 5, dash: 720, color: "#f3e1bd", especialTexto: "Super estable y facil de dominar." },
+  platon: { nombre: "PLATON", descripcion: "Tanque", arma: "Disco pesado", hp: 4, saltos: 2, cadencia: 0.16, bala: 590, dano: 6.5, dash: 840, color: "#d8e6d0", especial: "tanque", especialTexto: "Mas vida, balas pesadas y dash largo." },
+  tetito: { nombre: "TETITO", descripcion: "Agil", arma: "Chorro veloz", hp: 2, saltos: 3, cadencia: 0.095, bala: 760, dano: 4.4, dash: 690, color: "#f0c2df", especial: "aire", especialTexto: "Triple salto, wall jump y doble dash aereo." },
+  jarron: { nombre: "JARRON", descripcion: "Mago", arma: "Rayo arcano", hp: 2, saltos: 2, cadencia: 0.18, bala: 580, dano: 4.2, dash: 640, color: "#8b6cc8", especial: "magia", especialTexto: "Sus balas atraviesan minions." },
+  termo: { nombre: "TERMO", descripcion: "Berserker", arma: "Tapon caliente", hp: 5, saltos: 1, cadencia: 0.22, bala: 520, dano: 7, dash: 880, color: "#c86c3a", especial: "furia", especialTexto: "Hace mas dano cuanto menos HP tiene." },
+  taza_chica: { nombre: "TACITA JR", descripcion: "Veloz", arma: "Perlas express", hp: 2, saltos: 3, cadencia: 0.07, bala: 820, dano: 3.6, dash: 750, color: "#6cb8c8", especial: "rapido", especialTexto: "Dispara automaticamente al correr." }
 };
 
 export class Jugador {
@@ -66,6 +66,10 @@ export class Jugador {
   }
 
   morir(juego) {
+    if (juego.estado === "bonus") {
+      juego.terminarBonus?.(false);
+      return;
+    }
     this.muerto = true;
     juego.statsActualizar?.("totalMuertes", 1);
     this.estado = "muerte";
@@ -205,7 +209,7 @@ export class Jugador {
     this.vy = lerp(this.vy, my * velocidad, fluidez);
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    this.x = clamp(this.x, juego.camara.x + 45, juego.camara.x + 915);
+    this.x = clamp(this.x, juego.camara.x + 45, juego.camara.x + ANCHO - 45);
     this.y = clamp(this.y, 70, 650);
     this.estado = "idle";
   }
@@ -273,7 +277,13 @@ export class Jugador {
     const furia = p.especial === "furia" ? 1 + (1 - this.hp / this.maxHp) * 1.5 : 1;
     for (const off of offsets) {
       juego.balas.crear("jugador", this.x + this.aimX * 32, this.y + this.aimY * 22 + off, this.aimX * p.bala, this.aimY * p.bala, {
-        color: p.especial === "magia" ? "#b99cff" : "#f5d66c", w: 16, h: 10, dano: 5 * furia, vida: 1.8, rebotes: mejoras.rebote || 0, atraviesa: p.especial === "magia"
+        color: p.especial === "magia" ? "#b99cff" : p.especial === "furia" ? "#ff9b54" : p.especial === "rapido" ? "#9feaff" : "#f5d66c",
+        w: p.especial === "tanque" ? 20 : 16,
+        h: p.especial === "tanque" ? 13 : 10,
+        dano: (p.dano || 5) * furia,
+        vida: 1.8,
+        rebotes: mejoras.rebote || 0,
+        atraviesa: p.especial === "magia"
       });
     }
     juego.audio.sfx("disparo");

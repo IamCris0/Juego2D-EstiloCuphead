@@ -102,6 +102,14 @@ export class Enemigo {
     this.knock = Math.max(0, this.knock - dt);
     this.ventanaGolpe = Math.max(0, this.ventanaGolpe - dt);
     if (this.ventanaGolpe <= 0) this.golpesRapidos = 0;
+    if (this.bonus) {
+      this.x -= this.velocidad * 1.35 * dt;
+      if (this.volador) this.y = this.baseY + Math.sin(this.t * 4.4) * 38;
+      if (this.estado === ESTADOS_IA.ATACAR) this.atacar(juego);
+      if (aabb(this.rect(), juego.jugador.rect())) juego.jugador.herir(juego);
+      if (this.x < juego.camara.x - 160) this.activo = false;
+      return;
+    }
     actualizarIA(this, juego, dt);
 
     if (this.volador) this.y = this.baseY + Math.sin(this.t * (this.tipo === "anguila" ? 6 : 3.4)) * (this.tipo === "anguila" ? 55 : 42);

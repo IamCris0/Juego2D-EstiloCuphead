@@ -1,4 +1,5 @@
-import { ANCHO, medidor, texto } from "../util.js";
+import { ANCHO, ALTO, medidor, texto } from "../util.js";
+import { PERSONAJES } from "../jugador.js";
 
 export function dibujarHud(g, juego) {
   g.save();
@@ -34,19 +35,25 @@ export function dibujarHud(g, juego) {
     g.fillRect(px, 57, Math.max(0, tiempo) * 3, 3);
     px += 34;
   }
-  texto(g, `PUNTOS ${juego.puntos}`, 325, 35, 21, "left");
-  texto(g, `x${juego.combo.toFixed(1)}`, 495, 35, 21, "left");
-  texto(g, `TIEMPO ${Math.floor(juego.tiempo)}`, 590, 35, 21, "left");
-  texto(g, `MONEDAS ${juego.monedas}`, 725, 35, 21, "left");
-  texto(g, `VIDAS ${Math.max(0, juego.vidas + 1)}`, 865, 35, 21, "left");
+  const pj = PERSONAJES[juego.jugador.tipo];
+  texto(g, pj?.nombre || "HEROE", 330, 20, 17, "left", "#ffef9b");
+  texto(g, pj?.arma || "ARMA", 330, 43, 16, "left", "#d8a342");
+  texto(g, `PUNTOS ${juego.puntos}`, 510, 35, 21, "left");
+  texto(g, `x${juego.combo.toFixed(1)}`, 690, 35, 21, "left");
+  texto(g, `TIEMPO ${Math.floor(juego.tiempo)}`, 790, 35, 21, "left");
+  texto(g, `MONEDAS ${juego.monedas}`, 945, 35, 21, "left");
+  texto(g, `VIDAS ${Math.max(0, juego.vidas + 1)}`, 1135, 35, 21, "left");
   if (juego.nivel?.jefe?.activo) {
-    medidor(g, 230, 64, 500, 18, juego.nivel.jefe.hp / juego.nivel.jefe.maxHp, "#b93930", juego.nivel.jefe.nombre);
+    medidor(g, ANCHO / 2 - 315, 64, 630, 18, juego.nivel.jefe.hp / juego.nivel.jefe.maxHp, "#b93930", juego.nivel.jefe.nombre);
     for (let i = 1; i < juego.nivel.jefe.fasesMax; i++) {
-      const x = 230 + 500 * (i / juego.nivel.jefe.fasesMax);
+      const x = ANCHO / 2 - 315 + 630 * (i / juego.nivel.jefe.fasesMax);
       g.fillStyle = "#1a100c";
       g.fillRect(x - 2, 62, 4, 22);
     }
-    texto(g, juego.nivel.jefe.dialogo, 480, 104, 18, "center", "#ffef9b");
+    texto(g, `FASE ${juego.nivel.jefe.fase}/${juego.nivel.jefe.fasesMax} - ${juego.nivel.jefe.dialogo}`, ANCHO / 2, 104, 18, "center", "#ffef9b");
+  }
+  if (juego.estado === "bonus") {
+    texto(g, "BONUS: sobrevive, recoge monedas y derrota oleadas", ANCHO / 2, 137, 22, "center", "#ffef9b");
   }
   if (juego.combo > 2) {
     const tam = juego.combo >= 5 ? 42 : juego.combo >= 4 ? 34 : juego.combo >= 3 ? 28 : 22;
@@ -59,12 +66,12 @@ export function dibujarHud(g, juego) {
 export function dibujarPausa(g, juego) {
   g.save();
   g.fillStyle = "rgba(20, 11, 8, 0.62)";
-  g.fillRect(0, 0, 960, 720);
-  texto(g, "PAUSA", 480, 230, 70);
+  g.fillRect(0, 0, ANCHO, ALTO);
+  texto(g, "PAUSA", ANCHO / 2, 230, 70);
   ["CONTINUAR", "REINICIAR NIVEL", "VOLVER AL MAPA", "CONFIGURACION"].forEach((op, i) => {
-    texto(g, `${juego.pausaMenu === i ? ">" : " "} ${op}`, 480, 330 + i * 44, 27, "center", juego.pausaMenu === i ? "#ffef9b" : "#f1dfb8");
+    texto(g, `${juego.pausaMenu === i ? ">" : " "} ${op}`, ANCHO / 2, 330 + i * 44, 27, "center", juego.pausaMenu === i ? "#ffef9b" : "#f1dfb8");
   });
-  texto(g, "FLECHAS: ELEGIR    ENTER: CONFIRMAR", 480, 555, 21);
-  texto(g, "Z/ESPACIO salto  X disparo  C dash  V super", 480, 605, 19, "center", "#d8a342");
+  texto(g, "FLECHAS: ELEGIR    ENTER: CONFIRMAR", ANCHO / 2, 555, 21);
+  texto(g, "Z/ESPACIO salto  X disparo  C dash  V super  Q golpe", ANCHO / 2, 605, 19, "center", "#d8a342");
   g.restore();
 }

@@ -1,5 +1,6 @@
 import { ANCHO, ALTO, TAU, texto } from "../util.js";
 import { sprites } from "../../sprites/sprites.js";
+import { PERSONAJES } from "../jugador.js";
 
 export function fondoMenu(g, t) {
   const grad = g.createLinearGradient(0, 0, 0, ALTO);
@@ -35,23 +36,41 @@ export function dibujarTitulo(g, juego) {
 
 export function dibujarSeleccion(g, juego) {
   fondoMenu(g, juego.t);
-  texto(g, "ELIGE TU HEROE", 480, 90, 56);
+  texto(g, "ELIGE TU HEROE", ANCHO / 2, 72, 54);
   const ids = ["tacita", "platon", "tetito", "jarron", "termo", "taza_chica"];
-  const nombres = ["TACITA", "PLATON", "TETITO", "JARRON", "TERMO", "TACITA JR"];
-  const desc = ["Balanceada", "+1 vida, dash largo", "Triple salto, agil", "Balas magicas", "Furia con poco HP", "Corre y dispara"];
   ids.forEach((id, i) => {
     const col = i % 3;
     const fila = Math.floor(i / 3);
-    const x = 240 + col * 240;
-    const yBase = 260 + fila * 205;
+    const x = ANCHO / 2 - 330 + col * 330;
+    const yBase = 220 + fila * 190;
     const activo = juego.selector === i;
+    const p = PERSONAJES[id];
     g.save();
     g.translate(x, yBase + Math.sin(juego.t * 4 + i) * 8);
     g.globalAlpha = activo ? 1 : 0.65;
+    if (activo) {
+      g.fillStyle = "rgba(255,239,155,0.18)";
+      g.strokeStyle = "#ffef9b";
+      g.lineWidth = 4;
+      g.beginPath();
+      g.roundRect(-78, -91, 156, 214, 8);
+      g.fill();
+      g.stroke();
+    }
     g.drawImage(sprites.jugador[id].idle[Math.floor(juego.t * 7) % 3], -52, -68, 104, 118);
     g.restore();
-    texto(g, nombres[i], x, yBase + 78, 25, "center", activo ? "#ffef9b" : "#f1dfb8");
-    texto(g, desc[i], x, yBase + 108, 17);
+    texto(g, p.nombre, x, yBase + 70, 25, "center", activo ? "#ffef9b" : "#f1dfb8");
+    texto(g, p.descripcion, x, yBase + 98, 17);
+    texto(g, `HP ${p.hp}  SALTOS ${p.saltos}  DANO ${p.dano}`, x, yBase + 122, 15, "center", activo ? "#f4e3bd" : "#9b8a6c");
   });
-  texto(g, "FLECHAS: CAMBIAR    ENTER: CONFIRMAR", 480, 665, 24);
+  const elegido = PERSONAJES[ids[juego.selector]];
+  g.fillStyle = "rgba(29,18,13,0.78)";
+  g.strokeStyle = "#1a100c";
+  g.lineWidth = 5;
+  g.beginPath();
+  g.roundRect(260, 600, ANCHO - 520, 76, 8);
+  g.fill();
+  g.stroke();
+  texto(g, `${elegido.arma}: ${elegido.especialTexto}`, ANCHO / 2, 626, 22, "center", "#ffef9b");
+  texto(g, "FLECHAS: CAMBIAR    ENTER: CONFIRMAR", ANCHO / 2, 656, 20);
 }

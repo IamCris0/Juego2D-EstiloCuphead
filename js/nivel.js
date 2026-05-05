@@ -1,6 +1,6 @@
 import { Enemigo } from "./enemigo.js";
 import { Jefe } from "./jefe.js";
-import { rand } from "./util.js";
+import { ANCHO, rand } from "./util.js";
 
 export const MUNDOS = [
   { id: 1, nombre: "Selva de Tinta", modo: "run", jefe: "arbol", mid: "cocodrilo" },
@@ -16,7 +16,7 @@ export function crearNivel(id) {
 
 export function crearSubNivel(id, subId) {
   const mundo = MUNDOS[id - 1];
-  const ancho = subId === 1 ? 2200 : subId === 3 ? 960 : 5200;
+  const ancho = subId === 1 ? 2600 : subId === 3 ? ANCHO : 5600;
   const nivel = {
     id,
     subId,
@@ -24,7 +24,7 @@ export function crearSubNivel(id, subId) {
     nombreSub: ["Zona de practica", "Zona principal", "Jefe del mundo"][subId - 1],
     modo: mundo.modo,
     ancho,
-    tiempoLimite: subId === 1 ? 90 : subId === 3 ? 220 : 170,
+    tiempoLimite: subId === 1 ? 90 : subId === 3 ? 240 : 185,
     plataformas: [],
     enemigos: [],
     monedas: [],
@@ -36,8 +36,8 @@ export function crearSubNivel(id, subId) {
   if (subId === 3 || mundo.modo === "jefe") {
     nivel.modo = mundo.modo === "aereo" || mundo.modo === "submarino" ? mundo.modo : "jefe";
     nivel.submarino = mundo.modo === "submarino";
-    if (nivel.modo === "jefe") nivel.plataformas.push({ x: 0, y: 640, w: 960, h: 100 });
-    nivel.jefe = new Jefe(mundo.jefe, 705, id === 4 ? 330 : 300);
+    if (nivel.modo === "jefe") nivel.plataformas.push({ x: 0, y: 640, w: ANCHO, h: 100 });
+    nivel.jefe = new Jefe(mundo.jefe, ANCHO - 255, id === 4 ? 330 : 300);
     nivel.jefe.activo = true;
     return nivel;
   }
@@ -53,9 +53,9 @@ export function crearBonus(mundoId) {
     nombre: "Bonus Stage",
     nombreSub: "Lluvia de monedas",
     modo: "bonus",
-    ancho: 960,
+    ancho: ANCHO,
     tiempoLimite: 20,
-    plataformas: [{ x: 0, y: 620, w: 960, h: 120 }],
+    plataformas: [{ x: 0, y: 620, w: ANCHO, h: 120 }],
     enemigos: [],
     monedas: [],
     powerups: [],
@@ -63,7 +63,13 @@ export function crearBonus(mundoId) {
     submarino: false,
     bonus: true
   };
-  for (let i = 0; i < 30; i++) nivel.monedas.push({ x: 60 + (i * 73) % 840, y: -40 - i * 45, w: 22, h: 22, tomada: false, cae: true });
+  for (let i = 0; i < 34; i++) nivel.monedas.push({ x: 80 + (i * 97) % (ANCHO - 160), y: -40 - i * 45, w: 22, h: 22, tomada: false, cae: true });
+  nivel.oleadas = [
+    { t: 2.0, tipo: "globo", cantidad: 4 },
+    { t: 6.0, tipo: "pajaro", cantidad: 4 },
+    { t: 10.0, tipo: "ficha", cantidad: 5 },
+    { t: 14.0, tipo: "murcielago", cantidad: 6 }
+  ];
   return nivel;
 }
 

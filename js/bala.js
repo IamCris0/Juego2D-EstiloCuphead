@@ -1,5 +1,5 @@
 import { Pool } from "./pool.js";
-import { TAU, aabb, lerp, tinta } from "./util.js";
+import { ANCHO, TAU, aabb, lerp, tinta } from "./util.js";
 
 export class SistemaBalas {
   constructor() {
@@ -36,7 +36,7 @@ export class SistemaBalas {
         b.y = Math.max(40, Math.min(680, b.y));
         b.rebotes--;
       }
-      if (b.x < juego.camara.x - 150 || b.x > juego.camara.x + 1120 || b.y < -160 || b.y > 880) b.activo = false;
+      if (b.x < juego.camara.x - 150 || b.x > juego.camara.x + ANCHO + 160 || b.y < -160 || b.y > 880) b.activo = false;
       const br = { x: b.x - b.w / 2, y: b.y - b.h / 2, w: b.w, h: b.h };
       if (b.dueno === "jugador") {
         for (const e of juego.nivel.enemigos) {

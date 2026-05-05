@@ -98,30 +98,54 @@ export function crearVictoriaFinal(juego) {
 
 export function crearIntroJefe(jefe) {
   return new Cinematica([
-    { duracion: 2.5, dibujar(g, t, p) {
+    { duracion: 3.4, dibujar(g, t, p) {
       if (!this.sono) { audio.sfx("boomJefe"); this.sono = true; }
-      g.fillStyle = "#211611"; g.fillRect(0, 0, ANCHO, ALTO);
-      if (t < 0.3) return;
+      g.fillStyle = "#211611";
+      g.fillRect(0, 0, ANCHO, ALTO);
+      const cx = ANCHO / 2;
+      if (t < 0.28) {
+        g.fillStyle = `rgba(255,239,155,${0.18 + Math.sin(t * 45) * 0.12})`;
+        g.fillRect(0, 0, ANCHO, ALTO);
+        texto(g, "!", cx, 360, 110, "center", "#ffef9b");
+        return;
+      }
+      const entrada = Math.min(1, (t - 0.28) / 1.5);
+      const latido = 1 + Math.sin(t * 10) * 0.035;
+      const sombra = g.createRadialGradient(cx, 365, 30, cx, 365, 430);
+      sombra.addColorStop(0, "rgba(255,239,155,0.2)");
+      sombra.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = sombra;
+      g.fillRect(0, 0, ANCHO, ALTO);
       g.save();
-      g.translate(480, 335);
-      const s = 0.45 + p * 0.9;
+      g.translate(cx, 345);
+      const s = (0.28 + entrada * 1.12) * latido;
       g.scale(s, s);
-      if (jefe.tipo === "arbol") g.scale(1, p);
-      if (jefe.tipo === "diablo") g.translate(0, (1 - p) * 120);
+      if (jefe.tipo === "arbol") {
+        g.translate(0, (1 - entrada) * 150);
+        g.scale(1, Math.max(0.15, entrada));
+      }
+      if (jefe.tipo === "pulpo") g.rotate(Math.sin(t * 6) * 0.08);
+      if (jefe.tipo === "diablo") g.translate(0, (1 - entrada) * 150);
       g.drawImage(sprites.jefes[jefe.tipo], -120, -95, 240, 190);
       g.restore();
       if (jefe.tipo === "nube") {
         g.strokeStyle = "#ffef9b"; g.lineWidth = 6;
-        g.beginPath(); g.moveTo(260, 180); g.lineTo(310, 260); g.lineTo(280, 260); g.lineTo(330, 345); g.stroke();
-        g.beginPath(); g.moveTo(700, 180); g.lineTo(650, 260); g.lineTo(680, 260); g.lineTo(630, 345); g.stroke();
+        g.beginPath(); g.moveTo(cx - 270, 180); g.lineTo(cx - 220, 260); g.lineTo(cx - 250, 260); g.lineTo(cx - 200, 345); g.stroke();
+        g.beginPath(); g.moveTo(cx + 270, 180); g.lineTo(cx + 220, 260); g.lineTo(cx + 250, 260); g.lineTo(cx + 200, 345); g.stroke();
       }
-      if (jefe.tipo === "joker") for (let i = 0; i < 7; i++) { g.fillStyle = "#f1dfb8"; g.fillRect(300 + i * 55, 230 + Math.sin(t * 8 + i) * 20, 26, 40); }
-      texto(g, jefe.nombre, 480, 105, 44, "center", "#ffef9b");
+      if (jefe.tipo === "joker") for (let i = 0; i < 7; i++) { g.fillStyle = "#f1dfb8"; g.fillRect(cx - 190 + i * 62, 230 + Math.sin(t * 8 + i) * 20, 26, 40); }
+      if (jefe.tipo === "pulpo") for (let i = 0; i < 5; i++) { g.strokeStyle = "#8f4b79"; g.lineWidth = 8; g.beginPath(); g.moveTo(cx - 120 + i * 60, 420); g.quadraticCurveTo(cx - 160 + i * 70, 540 + Math.sin(t * 6 + i) * 18, cx - 110 + i * 52, 585); g.stroke(); }
+      if (jefe.tipo === "diablo") {
+        g.fillStyle = "rgba(255,100,35,0.45)";
+        for (let i = 0; i < 12; i++) { g.beginPath(); g.moveTo(cx - 300 + i * 55, 720); g.quadraticCurveTo(cx - 280 + i * 55, 590 - Math.sin(t * 9 + i) * 45, cx - 250 + i * 55, 720); g.fill(); }
+      }
+      texto(g, jefe.nombre, cx, 92, 48, "center", "#ffef9b");
       g.fillStyle = "#f1dfb8"; g.strokeStyle = "#1a100c"; g.lineWidth = 5;
-      g.beginPath(); g.roundRect(250, 535, 460, 70, 12); g.fill(); g.stroke();
-      texto(g, jefe.dialogo, 480, 570, 24, "center", "#1a100c");
-      g.fillStyle = "#1a100c"; g.fillRect(230, 650, 500, 18);
-      g.fillStyle = "#b93930"; g.fillRect(233, 653, 494 * p, 12);
+      g.beginPath(); g.roundRect(cx - 290, 535, 580, 72, 12); g.fill(); g.stroke();
+      texto(g, jefe.dialogo, cx, 570, 25, "center", "#1a100c");
+      g.fillStyle = "#1a100c"; g.fillRect(cx - 315, 650, 630, 18);
+      g.fillStyle = "#b93930"; g.fillRect(cx - 312, 653, 624 * p, 12);
+      texto(g, "PREPARATE", cx, 678, 18, "center", "#d8a342");
     } }
   ]);
 }

@@ -1,4 +1,4 @@
-export const ANCHO = 960;
+export const ANCHO = 1280;
 export const ALTO = 720;
 export const TAU = Math.PI * 2;
 

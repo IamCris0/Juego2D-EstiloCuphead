@@ -82,6 +82,8 @@ const juego = {
   reintentos: {},
   bonusPendiente: false,
   puntosBonusInicio: 0,
+  bonusSnapshot: null,
+  bonusUsado: {},
 
   iniciar() {
     requestAnimationFrame(this.bucle.bind(this));
@@ -153,8 +155,8 @@ const juego = {
     for (const p of this.nivel.powerups || []) this.powerups.crear(p.x, p.y, p.tipo);
     if (this.nivel.modo === "jefe" || subId === 3) {
       this.powerups.crear(210, 520, "vida");
-      this.powerups.crear(480, 500, "super_max");
-      this.powerups.crear(740, 520, "vida");
+      this.powerups.crear(ANCHO / 2, 500, "super_max");
+      this.powerups.crear(ANCHO - 240, 520, "vida");
     }
     if (subId === 3 && this.nivel.jefe) {
       this.cinematica = crearIntroJefe(this.nivel.jefe);
@@ -208,10 +210,20 @@ const juego = {
     guardado.record = Math.max(guardado.record, this.puntos);
     this.resultado = this.calcularGrado();
     if (this.subNivel === 2 && ["A", "S"].includes(this.resultado.grado) && !this.bonusPendiente) {
+      const clave = `${this.mundo}-${this.subNivel}`;
+      if (this.bonusUsado[clave]) {
+        this.finalizarNivelTrasBonus();
+        return;
+      }
       this.bonusPendiente = true;
+      this.bonusUsado[clave] = true;
       this.iniciarBonus();
       return;
     }
+    this.finalizarNivelTrasBonus();
+  },
+
+  finalizarNivelTrasBonus() {
     if (this.jugador.golpes === 0) this.logro("sinRasguino");
     if (this.nivel.monedas.every(c => c.tomada)) this.logro("coleccionista");
     if (this.jugador.parries >= 5) this.logro("parryMaestro");
@@ -236,6 +248,23 @@ const juego = {
   },
 
   iniciarBonus() {
+    this.bonusSnapshot = {
+      nivel: this.nivel,
+      jugador: {
+        x: this.jugador.x,
+        y: this.jugador.y,
+        hp: this.jugador.hp,
+        super: this.jugador.super,
+        golpes: this.jugador.golpes,
+        parries: this.jugador.parries,
+        disparos: this.jugador.disparos,
+        aciertos: this.jugador.aciertos
+      },
+      camaraX: this.camara.x,
+      tiempoNivel: this.tiempo,
+      balas: this.balas.pool.items.map(b => ({ ...b })),
+      powerupsActivos: { ...this.powerupsActivos }
+    };
     this.nivel = crearBonus(this.mundo);
     this.jugador.configurar(guardado.personaje, guardado);
     this.jugador.x = 120;
@@ -243,10 +272,37 @@ const juego = {
     this.jugador.aereo = false;
     this.tiempo = 0;
     this.puntosBonusInicio = this.puntos;
+    this.proximaOleadaBonus = 0;
     this.balas.limpiar();
     this.particulas.limpiar();
     this.powerups.limpiar();
     this.cambiar("bonus");
+  },
+
+  terminarBonus(vivo = true) {
+    if (!this.bonusSnapshot) {
+      this.cambiar("resultados");
+      return;
+    }
+    const ganado = this.puntos - this.puntosBonusInicio;
+    this.notificaciones.push({ texto: vivo ? `BONUS +${ganado}` : `BONUS TERMINADO +${ganado}`, vida: 3 });
+    this.nivel = this.bonusSnapshot.nivel;
+    this.jugador.configurar(guardado.personaje, guardado);
+    Object.assign(this.jugador, this.bonusSnapshot.jugador);
+    this.jugador.muerto = false;
+    this.jugador.inv = Math.max(this.jugador.inv, 1.1);
+    this.jugador.aereo = ["aereo", "submarino"].includes(this.nivel.modo);
+    this.camara.x = this.bonusSnapshot.camaraX;
+    this.tiempo = this.bonusSnapshot.tiempoNivel;
+    this.powerupsActivos = { ...this.bonusSnapshot.powerupsActivos };
+    this.balas.limpiar();
+    this.bonusSnapshot.balas.forEach((data, i) => Object.assign(this.balas.pool.items[i], data));
+    this.particulas.limpiar();
+    this.powerups.limpiar();
+    for (const p of this.nivel.powerups || []) if (!p.tomado) this.powerups.crear(p.x, p.y, p.tipo);
+    this.bonusPendiente = false;
+    this.bonusSnapshot = null;
+    this.cambiar("jugar");
   },
 
   calcularGrado() {
@@ -276,7 +332,7 @@ const juego = {
       guardado.monedas -= item.costo;
       guardado.mejoras[item.id] = nivel + 1;
       this.monedas = guardado.monedas;
-      for (let i = 0; i < 24; i++) this.particulas.estallido(480 + rand(-40, 40), 150, "#f4d35e", 1, 260);
+      for (let i = 0; i < 24; i++) this.particulas.estallido(ANCHO / 2 + rand(-40, 40), 150, "#f4d35e", 1, 260);
       audio.sfx("comprar");
       persistir();
     }
@@ -453,10 +509,9 @@ const juego = {
     if (this.estado === "bonus") {
       this.combo = Math.max(this.combo, 3);
       for (const c of this.nivel.monedas) if (c.cae && !c.tomada) c.y += 120 * dt;
+      this.actualizarBonus(dt);
       if (this.tiempo > 20) {
-        this.notificaciones.push({ texto: `BONUS +${this.puntos - this.puntosBonusInicio}`, vida: 3 });
-        this.bonusPendiente = false;
-        this.cambiar("resultados");
+        this.terminarBonus(true);
       }
       return;
     }
@@ -474,6 +529,27 @@ const juego = {
         this.particulas.estallido(c.x, c.y, "#f4d35e", 10, 160);
         audio.sfx("moneda");
       }
+    }
+  },
+
+  actualizarBonus(dt) {
+    const oleadas = this.nivel.oleadas || [];
+    while (this.proximaOleadaBonus < oleadas.length && this.tiempo >= oleadas[this.proximaOleadaBonus].t) {
+      const o = oleadas[this.proximaOleadaBonus++];
+      for (let i = 0; i < o.cantidad; i++) {
+        const x = ANCHO + 80 + i * 72;
+        const y = o.tipo === "ficha" ? 590 : 130 + i * 78;
+        const e = new Enemigo(o.tipo, x, y, [40, ANCHO + 160]);
+        e.bonus = true;
+        e.hp *= 0.65;
+        e.maxHp = e.hp;
+        e.velocidad *= 1.2;
+        this.nivel.enemigos.push(e);
+      }
+      this.notificaciones.push({ texto: `OLEADA ${this.proximaOleadaBonus}`, vida: 1.6 });
+    }
+    for (const e of this.nivel.enemigos) {
+      if (e.bonus && e.x < -120) e.activo = false;
     }
   },
 
@@ -519,7 +595,7 @@ const juego = {
       if (this.camara.lensFlare > 0) dibujarLensFlare(g, this.camara.lensFlare);
       if (this.oscuridad > 0) { g.fillStyle = `rgba(0,0,0,${this.oscuridad})`; g.fillRect(0, 0, ANCHO, ALTO); }
       if (this.estado === "pausa") dibujarPausa(g, this);
-      if (this.estado === "bonus") texto(g, `BONUS ${Math.max(0, Math.ceil(20 - this.tiempo))}`, 480, 170, 64, "center", "#ffef9b");
+      if (this.estado === "bonus") texto(g, `BONUS ${Math.max(0, Math.ceil(20 - this.tiempo))}`, ANCHO / 2, 178, 64, "center", "#ffef9b");
     } else if (this.estado === "titulo") dibujarTitulo(g, this);
     else if (this.estado === "personaje") dibujarSeleccion(g, this);
     else if (this.estado === "mapa") dibujarMapa(g, this);
@@ -791,7 +867,7 @@ function dibujarMoneda(g, c, t) {
 function dibujarLensFlare(g, v) {
   g.save();
   g.globalAlpha = v;
-  const grad = g.createRadialGradient(480, 320, 20, 480, 320, 420);
+  const grad = g.createRadialGradient(ANCHO / 2, 320, 20, ANCHO / 2, 320, 420);
   grad.addColorStop(0, "rgba(255,245,170,0.75)");
   grad.addColorStop(1, "rgba(255,245,170,0)");
   g.fillStyle = grad;
@@ -854,39 +930,41 @@ function dibujarNotificaciones(g, juego) {
 }
 
 function dibujarLogros(g, juego) {
+  const cx = ANCHO / 2;
   const grad = g.createLinearGradient(0, 0, 0, ALTO);
   grad.addColorStop(0, "#6f563d");
   grad.addColorStop(1, "#211611");
   g.fillStyle = grad;
   g.fillRect(0, 0, ANCHO, ALTO);
-  texto(g, "LOGROS", 480, 72, 56, "center", "#ffef9b");
+  texto(g, "LOGROS", cx, 72, 56, "center", "#ffef9b");
   Object.entries(DEFINICIONES_LOGROS).forEach(([id, logro], i) => {
     const y = 155 + i * 70;
     const abierto = juego.logros.desbloqueados[id];
     tinta(g, abierto ? "#d8a342" : "#5d5044", "#1a100c", 4);
     g.beginPath();
-    g.arc(190, y, 24, 0, TAU);
+    g.arc(cx - 290, y, 24, 0, TAU);
     g.fill();
     g.stroke();
-    texto(g, abierto ? "OK" : "?", 190, y, 17, "center", "#1a100c");
-    texto(g, logro.nombre, 430, y - 8, 28, "left", abierto ? "#f4e3bd" : "#9b8a6c");
-    texto(g, abierto ? `Desbloqueado ${abierto}` : "Pendiente", 430, y + 22, 18, "left", abierto ? "#ffef9b" : "#8e8576");
+    texto(g, abierto ? "OK" : "?", 190 + (cx - 480), y, 17, "center", "#1a100c");
+    texto(g, logro.nombre, cx - 50, y - 8, 28, "left", abierto ? "#f4e3bd" : "#9b8a6c");
+    texto(g, abierto ? `Desbloqueado ${abierto}` : "Pendiente", cx - 50, y + 22, 18, "left", abierto ? "#ffef9b" : "#8e8576");
   });
-  texto(g, "ENTER/ESC: MAPA", 480, 650, 24);
+  texto(g, "ENTER/ESC: MAPA", cx, 650, 24);
 }
 
 function dibujarCarga(g, juego) {
+  const cx = ANCHO / 2;
   g.fillStyle = "#211611";
   g.fillRect(0, 0, ANCHO, ALTO);
-  texto(g, "Preparando la tinta...", 480, 265 + Math.sin(juego.t * 5) * 4, 38, "center", "#f1dfb8");
+  texto(g, "Preparando la tinta...", cx, 265 + Math.sin(juego.t * 5) * 4, 38, "center", "#f1dfb8");
   tinta(g, "#3b2921", "#1a100c", 5);
   g.beginPath();
-  g.roundRect(250, 350, 460, 36, 8);
+  g.roundRect(cx - 230, 350, 460, 36, 8);
   g.fill();
   g.stroke();
   g.fillStyle = "#d8a342";
-  g.fillRect(258, 358, 444 * juego.cargaProgreso, 20);
-  const x = 258 + 444 * juego.cargaProgreso;
+  g.fillRect(cx - 222, 358, 444 * juego.cargaProgreso, 20);
+  const x = cx - 222 + 444 * juego.cargaProgreso;
   g.fillStyle = "#f3e1bd";
   g.strokeStyle = "#1a100c";
   g.lineWidth = 4;

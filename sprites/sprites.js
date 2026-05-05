@@ -62,24 +62,36 @@ export function construirSprites() {
         if (nombre === "jarron") {
           g.beginPath(); g.ellipse(0, -2, 18, 34, 0, 0, TAU); g.fill(); g.stroke();
           g.beginPath(); g.ellipse(0, -35, 16, 8, 0, 0, TAU); g.stroke();
+          g.strokeStyle = paleta[1]; g.lineWidth = 4;
+          g.beginPath(); g.moveTo(-14, -20); g.quadraticCurveTo(0, -28, 14, -20); g.stroke();
+          g.fillStyle = "#ffef9b"; g.beginPath(); g.arc(0, -40, 4 + Math.sin(i) * 1, 0, TAU); g.fill();
         } else if (nombre === "termo") {
           g.beginPath(); g.roundRect(-19, -32, 38, 62, 10); g.fill(); g.stroke();
           g.beginPath(); g.roundRect(-14, -45, 28, 13, 5); g.fill(); g.stroke();
+          g.strokeStyle = "#6d3320"; g.lineWidth = 3;
+          for (let r = -16; r <= 16; r += 16) { g.beginPath(); g.moveTo(r, -27); g.lineTo(r, 27); g.stroke(); }
+          g.fillStyle = "#ffcf86"; g.beginPath(); g.arc(0, -47, 5, 0, TAU); g.fill(); g.stroke();
         } else if (nombre === "taza_chica") {
           g.beginPath(); g.ellipse(0, 4, 19, 22, 0, 0, TAU); g.fill(); g.stroke();
           g.beginPath(); g.arc(19, 4, 8, -1.2, 1.2); g.stroke();
           g.strokeStyle = paleta[1]; g.lineWidth = 5; g.beginPath(); g.moveTo(-10, -30); g.quadraticCurveTo(-28, -42, -32, -20); g.stroke();
+          g.fillStyle = "#ffef9b"; g.beginPath(); g.arc(-33, -19, 6, 0, TAU); g.fill(); g.stroke();
         } else if (nombre === "platon") {
           g.beginPath(); g.ellipse(0, 0, 30, 18, 0, 0, TAU); g.fill(); g.stroke();
           g.beginPath(); g.ellipse(0, 0, 19, 10, 0, 0, TAU); g.stroke();
+          g.strokeStyle = paleta[1]; g.lineWidth = 3;
+          g.beginPath(); g.moveTo(-22, -8); g.quadraticCurveTo(0, -19, 22, -8); g.stroke();
         } else if (nombre === "tetito") {
           g.beginPath(); g.ellipse(0, 0, 24, 26, 0, 0, TAU); g.fill(); g.stroke();
           g.beginPath(); g.arc(25, -2, 10, -1.2, 1.2); g.stroke();
           g.beginPath(); g.moveTo(-24, -5); g.lineTo(-38, -12); g.stroke();
+          g.strokeStyle = paleta[1]; g.lineWidth = 4;
+          g.beginPath(); g.moveTo(-7, -27); g.quadraticCurveTo(0, -42, 9, -27); g.stroke();
         } else {
           g.beginPath(); g.ellipse(0, 0, 24, 27, 0, 0, TAU); g.fill(); g.stroke();
           g.beginPath(); g.ellipse(0, -21, 28, 12, 0, 0, TAU); g.fillStyle = "#fff0cf"; g.fill(); g.stroke();
           g.beginPath(); g.arc(24, -1, 10, -1.2, 1.2); g.strokeStyle = "#1a100c"; g.lineWidth = 4; g.stroke();
+          g.fillStyle = paleta[1]; g.beginPath(); g.arc(-18, -25, 5, 0, TAU); g.fill(); g.stroke();
         }
         g.strokeStyle = paleta[1]; g.lineWidth = 6;
         g.beginPath(); g.moveTo(-2, -31); g.quadraticCurveTo(15, -45 - bob, 24, -32); g.stroke();
@@ -131,6 +143,10 @@ export function construirSprites() {
         g.beginPath(); g.ellipse(12, 18, 16, 7, 0.4, 0, TAU); g.stroke();
         g.beginPath(); g.ellipse(58, 18, 16, 7, -0.4, 0, TAU); g.stroke();
       }
+      if (tipo === "rana") { g.fillStyle = "#ffef9b"; g.beginPath(); g.arc(21, 14, 7, 0, TAU); g.fill(); g.stroke(); g.beginPath(); g.arc(49, 14, 7, 0, TAU); g.fill(); g.stroke(); }
+      if (tipo === "hongo") { g.fillStyle = "#f1dfb8"; for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(24 + k * 11, 20, 4, 0, TAU); g.fill(); } }
+      if (tipo === "tortuga") { g.strokeStyle = "#263d25"; g.lineWidth = 3; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(22 + k * 9, 16); g.lineTo(28 + k * 9, 43); g.stroke(); } }
+      if (tipo === "tragamonedas") { g.fillStyle = "#d8a342"; g.fillRect(24, 11, 22, 8); g.fillStyle = "#1a100c"; g.fillRect(49, 20, 8, 19); }
       if (tipo === "medusa") for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(20 + i * 10, 46); g.quadraticCurveTo(18 + i * 12, 58, 24 + i * 9, 61); g.stroke(); }
       if (tipo === "cangrejo") { g.beginPath(); g.arc(11, 25, 9, 0, TAU); g.stroke(); g.beginPath(); g.arc(59, 25, 9, 0, TAU); g.stroke(); }
     });
@@ -150,6 +166,9 @@ export function construirSprites() {
         g.fillStyle = "#1a100c"; g.beginPath(); g.moveTo(82, 42); g.lineTo(60, 5); g.lineTo(105, 36); g.fill();
         g.beginPath(); g.moveTo(158, 42); g.lineTo(180, 5); g.lineTo(135, 36); g.fill();
       }
+      if (tipo === "nube") { g.strokeStyle = "#ffef9b"; g.lineWidth = 4; g.beginPath(); g.moveTo(92, 142); g.lineTo(112, 174); g.lineTo(103, 174); g.lineTo(122, 188); g.stroke(); }
+      if (tipo === "joker") { g.fillStyle = "#f1dfb8"; for (let i = 0; i < 5; i++) { g.save(); g.translate(68 + i * 26, 34); g.rotate((i - 2) * 0.2); g.fillRect(-8, -16, 16, 28); g.restore(); } }
+      if (tipo === "cocodrilo") { g.fillStyle = "#f1dfb8"; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(58 + i * 19, 112); g.lineTo(67 + i * 19, 130); g.lineTo(76 + i * 19, 112); g.fill(); } }
       dibujarCara(g, 120, 82, "feliz");
       g.strokeStyle = "#1a100c"; g.lineWidth = 8;
       g.beginPath(); g.arc(120, 113, 32, 0.08, Math.PI - 0.08); g.stroke();
